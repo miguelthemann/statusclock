@@ -71,6 +71,8 @@ class _CardRefs:
     frame: QFrame
     subtitle: QLabel
     body: QLabel
+    text_column: QWidget | None = None
+    secondary: QLabel | None = None
     media: QLabel | None = None
 
 
@@ -93,6 +95,7 @@ class StatusClockWindow(QMainWindow):
         self.refresh_state = _RefreshState()
         self._closing = False
         self._album_art_url: str | None = None
+        self._active_workers: set[Worker] = set()
 
         self.setWindowTitle("Status Clock")
         self.setMinimumSize(1280, 720)
@@ -121,9 +124,14 @@ class StatusClockWindow(QMainWindow):
         self.weather_card.frame.setMaximumWidth(360)
 
         self.spotify_card = self._create_card("Spotify", with_media=True)
-        self.spotify_card.body.setText("Configura o Spotify para mostrar a m\u00fasica atual.")
+        self.spotify_card.body.setText("Configura o Spotify")
+        if self.spotify_card.secondary is not None:
+            self.spotify_card.secondary.setText("para mostrar a m\u00fasica atual.")
         self.spotify_card.frame.setSizePolicy(QSizePolicy.Policy.Maximum, QSizePolicy.Policy.Preferred)
+        self.spotify_card.frame.setMinimumWidth(480)
         self.spotify_card.frame.setMaximumWidth(480)
+        if self.spotify_card.text_column is not None:
+            self.spotify_card.text_column.setFixedWidth(300)
 
         top_row.addWidget(self.weather_card.frame, 0, Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignTop)
         top_row.addStretch(1)
@@ -140,6 +148,9 @@ class StatusClockWindow(QMainWindow):
         self.clock_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self.clock_label.setObjectName("clockLabel")
         self.clock_label.setFont(QFont("Segoe UI", 82, QFont.Weight.Bold))
+        self.clock_label.setMinimumWidth(
+            self.clock_label.fontMetrics().horizontalAdvance("88:88:88") + 24
+        )
         center_layout.addWidget(self.clock_label)
 
         self.date_label = QLabel("A carregar data...")
@@ -199,7 +210,7 @@ class StatusClockWindow(QMainWindow):
 
         self.spotify_timer = QTimer(self)
         self.spotify_timer.timeout.connect(self.refresh_spotify)
-        self.spotify_timer.start(5 * 1000)
+        self.spotify_timer.start(2 * 1000)
 
         self.calendar_timer = QTimer(self)
         self.calendar_timer.timeout.connect(self.refresh_calendar)
@@ -270,14 +281,17 @@ class StatusClockWindow(QMainWindow):
         spotify: SpotifySnapshot = snapshot
         self.refresh_state.spotify_loaded = True
         self.spotify_card.subtitle.setText("A tocar" if spotify.is_playing else "Sem reprodu\u00e7\u00e3o")
-        self.spotify_card.body.setText(f"{spotify.title}\n{spotify.artist}")
+        self.spotify_card.body.setText(spotify.title)
+        if self.spotify_card.secondary is not None:
+            self.spotify_card.secondary.setText(spotify.artist)
         self._update_album_art(spotify.album_art_url)
-        self.spotify_card.frame.adjustSize()
 
     def _show_spotify_error(self, message: str) -> None:
         self.spotify_card.subtitle.setText("Spotify indispon\u00edvel")
         if not self.refresh_state.spotify_loaded:
             self.spotify_card.body.setText(message)
+            if self.spotify_card.secondary is not None:
+                self.spotify_card.secondary.clear()
 
     def _show_calendar(self, events: object) -> None:
         today_events = events
@@ -349,10 +363,11 @@ class StatusClockWindow(QMainWindow):
         on_finish: Callable[[], None],
     ) -> None:
         worker = Worker(func)
+        self._active_workers.add(worker)
         worker.signals.success.connect(on_success)
         worker.signals.error.connect(on_error)
-        worker.signals.success.connect(lambda _result: on_finish())
-        worker.signals.error.connect(lambda _message: on_finish())
+        worker.signals.success.connect(lambda _result, w=worker: self._finish_worker(w, on_finish))
+        worker.signals.error.connect(lambda _message, w=worker: self._finish_worker(w, on_finish))
         self.thread_pool.start(worker)
 
     def _toggle_fullscreen(self) -> None:
@@ -400,8 +415,13 @@ class StatusClockWindow(QMainWindow):
             }
             QLabel[cardBody="true"] {
                 color: #f4f7fb;
-                font-size: 21px;
+                font-size: 19px;
                 font-weight: 600;
+            }
+            QLabel[cardSecondary="true"] {
+                color: rgba(244, 247, 251, 0.76);
+                font-size: 16px;
+                font-weight: 500;
             }
             QLabel[media="true"] {
                 background-color: rgba(255, 255, 255, 0.06);
@@ -478,7 +498,24 @@ class StatusClockWindow(QMainWindow):
         body_label.setProperty("cardBody", True)
         body_label.setWordWrap(True)
         body_label.setAlignment(Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignTop)
-        body_layout.addWidget(body_label, 1)
+        body_label.setMaximumHeight(body_label.fontMetrics().lineSpacing() * 3 + 4)
+
+        text_column = QWidget()
+        text_layout = QVBoxLayout(text_column)
+        text_layout.setContentsMargins(0, 0, 0, 0)
+        text_layout.setSpacing(10)
+        text_layout.addWidget(body_label)
+
+        secondary_label: QLabel | None = None
+        if with_media:
+            secondary_label = QLabel("")
+            secondary_label.setProperty("cardSecondary", True)
+            secondary_label.setWordWrap(True)
+            secondary_label.setAlignment(Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignTop)
+            secondary_label.setMaximumHeight(secondary_label.fontMetrics().lineSpacing() * 2 + 2)
+            text_layout.addWidget(secondary_label)
+
+        body_layout.addWidget(text_column, 1)
 
         media_label: QLabel | None = None
         if with_media:
@@ -497,7 +534,14 @@ class StatusClockWindow(QMainWindow):
         shadow.setColor(QColor(0, 0, 0, 90))
         frame.setGraphicsEffect(shadow)
 
-        return _CardRefs(frame=frame, subtitle=subtitle_label, body=body_label, media=media_label)
+        return _CardRefs(
+            frame=frame,
+            subtitle=subtitle_label,
+            body=body_label,
+            text_column=text_column,
+            secondary=secondary_label,
+            media=media_label,
+        )
 
     def _svg_to_pixmap(self, svg_text: str, width: int, height: int) -> QPixmap:
         pixmap = QPixmap(width, height)
@@ -523,6 +567,10 @@ class StatusClockWindow(QMainWindow):
         self.calendar_card.frame.setMinimumWidth(target_width)
         self.calendar_card.frame.setMaximumWidth(target_width)
         self.calendar_card.frame.adjustSize()
+
+    def _finish_worker(self, worker: Worker, on_finish: Callable[[], None]) -> None:
+        self._active_workers.discard(worker)
+        on_finish()
 
 
 def launch_dashboard(services: DashboardServices) -> int:

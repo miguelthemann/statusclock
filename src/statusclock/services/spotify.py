@@ -33,6 +33,8 @@ class SpotifyService:
         self.client_secret = client_secret
         self.redirect_uri = redirect_uri
         self.cache_path = cache_path
+        self._auth_manager: SpotifyOAuth | None = None
+        self._client: spotipy.Spotify | None = None
 
     def is_configured(self) -> bool:
         return all([self.client_id, self.client_secret, self.redirect_uri])
@@ -44,16 +46,7 @@ class SpotifyService:
         self.cache_path.parent.mkdir(parents=True, exist_ok=True)
 
         try:
-            auth_manager = SpotifyOAuth(
-                client_id=self.client_id,
-                client_secret=self.client_secret,
-                redirect_uri=self.redirect_uri,
-                scope=SCOPE,
-                open_browser=True,
-                cache_path=str(self.cache_path),
-                show_dialog=False,
-            )
-            client = spotipy.Spotify(auth_manager=auth_manager)
+            client = self._get_client()
             playback = client.current_playback(additional_types="track")
             if not playback:
                 playback = client.current_user_playing_track()
@@ -86,3 +79,19 @@ class SpotifyService:
             is_playing=bool(playback.get("is_playing")),
             album_art_url=album_art_url,
         )
+
+    def _get_client(self) -> spotipy.Spotify:
+        if self._client is not None:
+            return self._client
+
+        self._auth_manager = SpotifyOAuth(
+            client_id=self.client_id,
+            client_secret=self.client_secret,
+            redirect_uri=self.redirect_uri,
+            scope=SCOPE,
+            open_browser=True,
+            cache_path=str(self.cache_path),
+            show_dialog=False,
+        )
+        self._client = spotipy.Spotify(auth_manager=self._auth_manager)
+        return self._client
