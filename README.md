@@ -4,96 +4,111 @@ Painel fullscreen em Python para mostrar:
 
 - relógio central com segundos
 - data atual
-- temperatura da tua localização
+- temperatura da localização
 - música atual do Spotify
-- eventos de hoje do Google Calendar
+- eventos do dia do Google Calendar
 
 Foi pensado para correr 24/7 num ecrã dedicado.
 
-## O que este projeto faz
+## Estado de compatibilidade
 
-No centro do ecrã mostra:
+- Windows: suportado e testado
+- Linux: supostamente suportado, mas não garantido nem testado de forma completa
+- macOS: não testado nem garantido
 
-- horas com segundos
-- data atual
+Este projeto foi pensado com prioridade para:
 
-Nos cartões laterais mostra:
-
-- tempo atual via Open-Meteo
-- música atual do Spotify, incluindo capa do álbum
-- agenda do dia via Google Calendar
+- Windows
+- Linux Fedora
+- Linux Debian/Ubuntu
+- Linux Arch
 
 ## Requisitos
 
-- Windows, Linux ou macOS
 - Python 3.11 ou superior
 - ligação à internet
 - conta Spotify
 - conta Google com Google Calendar
 
-## Estrutura rápida
+## Estrutura do projeto
 
-- app principal: [`src/statusclock/main.py`](D:/statusclock/src/statusclock/main.py)
-- interface: [`src/statusclock/dashboard.py`](D:/statusclock/src/statusclock/dashboard.py)
-- configuração: [`src/statusclock/config.py`](D:/statusclock/src/statusclock/config.py)
-- exemplo de variáveis de ambiente: [`.env.example`](D:/statusclock/.env.example)
-- arranque rápido no Windows: [`start_statusclock.bat`](D:/statusclock/start_statusclock.bat)
-- setup automático no Windows: [`setup_statusclock.bat`](D:/statusclock/setup_statusclock.bat)
+- `src/statusclock/main.py`: ponto de entrada principal
+- `src/statusclock/dashboard.py`: interface PySide6
+- `src/statusclock/config.py`: configuração e variáveis de ambiente
+- `.env.example`: exemplo de configuração
+- `start_statusclock.bat`: arranque rápido no Windows
+- `setup_statusclock.bat`: setup rápido no Windows
+- `start_statusclock.sh`: arranque rápido no Linux
+- `setup_statusclock.sh`: setup rápido no Linux
 
 ## Instalação no Windows
 
-### Opção mais simples
+### Método recomendado
 
-Corre:
+Na pasta do projeto:
 
 ```powershell
-D:\statusclock\setup_statusclock.bat
+.\setup_statusclock.bat
 ```
 
-Esse script:
-
-- cria `.venv` se ainda não existir
-- instala as dependências de [`requirements.txt`](D:/statusclock/requirements.txt)
-- cria `.env` a partir de [`.env.example`](D:/statusclock/.env.example) se ainda não existir
-
-Depois, para abrir a app:
+Depois:
 
 ```powershell
-D:\statusclock\start_statusclock.bat
+.\start_statusclock.bat
 ```
 
-### Opção manual
+### Método manual
 
 ```powershell
-cd D:\statusclock
 python -m venv .venv
 .venv\Scripts\Activate.ps1
 python -m pip install --upgrade pip
 python -m pip install -r requirements.txt
 Copy-Item .env.example .env
+python -m src.statusclock
 ```
 
-Para arrancar:
+## Instalação no Linux
 
-```powershell
-python -m src.statusclock
+### Método recomendado
+
+Na pasta do projeto:
+
+```bash
+chmod +x setup_statusclock.sh start_statusclock.sh
+./setup_statusclock.sh
+./start_statusclock.sh
+```
+
+### Método manual
+
+```bash
+python3 -m venv .venv
+./.venv/bin/python -m pip install --upgrade pip
+./.venv/bin/python -m pip install -r requirements.txt
+cp .env.example .env
+./.venv/bin/python -m src.statusclock
 ```
 
 ## Configuração
 
-Há 3 blocos de configuração:
-
-- tempo
-- Spotify
-- Google Calendar
-
 As variáveis ficam no ficheiro `.env` na raiz do projeto.
 
-Podes começar deste ficheiro:
+Podes começar por copiar o exemplo:
 
-- [`.env.example`](D:/statusclock/.env.example)
+Windows:
 
-### Exemplo completo de `.env`
+```powershell
+Copy-Item .env.example .env
+```
+
+Linux:
+
+```bash
+cp .env.example .env
+```
+
+### Exemplo de `.env`
 
 ```env
 WEATHER_LOCATION=Lisbon
@@ -105,61 +120,53 @@ SPOTIPY_REDIRECT_URI=http://127.0.0.1:8888/callback
 GOOGLE_CALENDAR_ID=primary
 ```
 
-## Configurar a temperatura
+## Configurar a meteorologia
 
-O projeto usa:
+O projeto usa Open-Meteo:
 
-- geocoding da Open-Meteo: [Open-Meteo Geocoding API](https://open-meteo.com/en/docs/geocoding-api)
+- geocoding: [Open-Meteo Geocoding API](https://open-meteo.com/en/docs/geocoding-api)
+- previsão/estado atual: [Open-Meteo Forecast API](https://open-meteo.com/en/docs)
 
-Podes configurar a localização de 2 formas.
-
-### Opção 1: por nome da cidade
-
-No `.env`:
+Podes configurar por nome:
 
 ```env
 WEATHER_LOCATION=Lisbon
 ```
 
-### Opção 2: por coordenadas
-
-No `.env`:
+Ou por coordenadas:
 
 ```env
 WEATHER_LAT=38.7223
 WEATHER_LON=-9.1393
 ```
 
-Se definires coordenadas, elas têm prioridade sobre o nome.
+Se definires coordenadas, elas têm prioridade.
 
 ## Configurar o Spotify
 
-O projeto usa OAuth com a Spotify Web API para ler a música atual.
+Links oficiais:
 
-Links úteis:
-
-- dashboard: [Spotify Developer Dashboard](https://developer.spotify.com/dashboard)
-- docs de redirect URI: [Spotify Redirect URIs](https://developer.spotify.com/documentation/web-api/concepts/redirect_uri)
-- visão geral da API: [Spotify Web API Concepts](https://developer.spotify.com/documentation/web-api/concepts/api-calls)
+- [Spotify Developer Dashboard](https://developer.spotify.com/dashboard)
+- [Spotify Redirect URIs](https://developer.spotify.com/documentation/web-api/concepts/redirect_uri)
+- [Spotify Web API Concepts](https://developer.spotify.com/documentation/web-api/concepts/api-calls)
 
 ### Passos
 
-1. Vai a [Spotify Developer Dashboard](https://developer.spotify.com/dashboard).
-2. Faz login com a tua conta Spotify.
-3. Cria uma app nova.
-4. Guarda estes dois valores:
+1. Abre o [Spotify Developer Dashboard](https://developer.spotify.com/dashboard).
+2. Faz login.
+3. Cria uma app.
+4. Copia:
    - `Client ID`
    - `Client Secret`
-5. Abre `Edit settings`.
-6. Em `Redirect URIs`, adiciona exatamente:
+5. Em `Edit settings`, adiciona este redirect URI:
 
 ```text
 http://127.0.0.1:8888/callback
 ```
 
-7. Guarda as alterações.
+6. Guarda as alterações.
 
-### Preencher o `.env`
+### `.env`
 
 ```env
 SPOTIPY_CLIENT_ID=o_teu_client_id
@@ -167,120 +174,145 @@ SPOTIPY_CLIENT_SECRET=o_teu_client_secret
 SPOTIPY_REDIRECT_URI=http://127.0.0.1:8888/callback
 ```
 
-### Notas importantes
+### Notas
 
-- O redirect URI tem de bater exatamente certo com o valor configurado no dashboard do Spotify.
-- Para apps novas, `127.0.0.1` é a opção segura. Não uses outro valor a menos que saibas o que estás a fazer.
-- Na primeira execução, a app deve abrir o browser para pedires autorização.
-- O token é guardado localmente em `.cache/spotify_token.json`.
+- O redirect URI tem de ser exatamente igual no `.env` e no dashboard do Spotify.
+- Na primeira execução, a app deve abrir o browser para autorização.
+- O token do Spotify fica guardado em `.cache/spotify_token.json`.
 
 ## Configurar o Google Calendar
 
-O projeto usa OAuth com a Google Calendar API para ler os eventos de hoje.
+Links oficiais:
 
-Links úteis:
-
-- quickstart oficial em Python: [Google Calendar API Python Quickstart](https://developers.google.com/workspace/calendar/api/quickstart/python)
-- configurar consent screen: [Configure OAuth Consent](https://developers.google.com/workspace/guides/configure-oauth-consent)
-- consola cloud: [Google Cloud Console](https://console.cloud.google.com/)
-- página da API: [Google Calendar API](https://console.cloud.google.com/apis/library/calendar-json.googleapis.com)
+- [Google Calendar API Python Quickstart](https://developers.google.com/workspace/calendar/api/quickstart/python)
+- [Configure OAuth Consent](https://developers.google.com/workspace/guides/configure-oauth-consent)
+- [Google Cloud Console](https://console.cloud.google.com/)
+- [Google Calendar API](https://console.cloud.google.com/apis/library/calendar-json.googleapis.com)
 
 ### Passos
 
-1. Vai à [Google Cloud Console](https://console.cloud.google.com/).
-2. Cria um projeto novo ou escolhe um existente.
+1. Abre a [Google Cloud Console](https://console.cloud.google.com/).
+2. Cria ou escolhe um projeto.
 3. Ativa a [Google Calendar API](https://console.cloud.google.com/apis/library/calendar-json.googleapis.com).
 4. Configura o OAuth consent screen.
-5. Cria credenciais do tipo:
+5. Cria credenciais:
    - `OAuth client ID`
    - `Desktop app`
-6. Faz download do ficheiro JSON das credenciais.
-7. Guarda esse ficheiro na raiz do projeto com o nome:
+6. Faz download do JSON.
+7. Guarda o ficheiro como `credentials.json` na raiz do projeto.
 
-```text
-credentials.json
-```
+### `.env`
 
-Deves deixar o `credentials.json` na pasta root do projeto.
-
-### Preencher o `.env`
-
-Se quiseres usar o teu calendário principal:
+Para o calendário principal:
 
 ```env
 GOOGLE_CALENDAR_ID=primary
 ```
 
-Se quiseres usar outro calendário, troca esse valor pelo ID do calendário.
+### Notas
 
-### Notas importantes
-
-- Na primeira execução, a app deve abrir o browser para login Google.
-- Depois da autorização, será criado um ficheiro `token.json` na raiz do projeto.
-- Se a tua app Google estiver em modo de teste, garante que o teu email está nos `Test users`.
+- Na primeira execução, a app abre o browser para login Google.
+- Depois da autorização, é criado `token.json` na raiz do projeto.
+- Se a app Google estiver em modo de teste, adiciona a tua conta em `Test users`.
 
 ## Como arrancar a aplicação
 
-### Por Script no Windows
+### Windows
 
 ```powershell
-D:\statusclock\start_statusclock.bat
+.\start_statusclock.bat
 ```
 
-### Direto por Python
+ou
 
 ```powershell
-cd D:\statusclock
-.venv\Scripts\python.exe -m src.statusclock
+python -m src.statusclock
 ```
 
-### Método direto pelo ficheiro principal
-
-Isto também está preparado para funcionar:
+ou
 
 ```powershell
-D:\statusclock\.venv\Scripts\python.exe D:\statusclock\src\statusclock\main.py
+.venv\Scripts\python.exe src\statusclock\main.py
 ```
+
+### Linux
+
+```bash
+./start_statusclock.sh
+```
+
+ou
+
+```bash
+python3 -m src.statusclock
+```
+
+ou
+
+```bash
+./.venv/bin/python src/statusclock/main.py
+```
+
+## Primeira execução
+
+No primeiro arranque, o comportamento esperado é:
+
+- a janela abre em fullscreen
+- o relógio aparece logo
+- o browser pode abrir para autenticação Spotify
+- o browser pode abrir para autenticação Google
+- é criado `token.json`
+- é criado `.cache/spotify_token.json`
 
 ## Atalhos
 
-- `Esc` fecha a app
-- `F11` alterna fullscreen
+- `Esc`: fecha a app
+- `F11`: alterna fullscreen
 
-## FAQs
+## Ficheiros criados automaticamente
+
+- `.env`
+- `token.json`
+- `.cache/spotify_token.json`
+
+## Resolução de problemas
 
 ### `ModuleNotFoundError: No module named 'dotenv'`
 
 Estás a usar um Python diferente daquele onde instalaste as dependências.
 
-Solução:
+Windows:
 
 ```powershell
-cd D:\statusclock
-D:\statusclock\.venv\Scripts\python.exe -m pip install -r requirements.txt
+.\.venv\Scripts\python.exe -m pip install -r requirements.txt
+```
+
+Linux:
+
+```bash
+./.venv/bin/python -m pip install -r requirements.txt
 ```
 
 ### `ImportError: attempted relative import with no known parent package`
 
-Isso acontece quando arrancas com um comando que não está a usar o projeto como pacote.
+Usa um destes arranques:
 
-Usa um destes:
+Windows:
 
 ```powershell
-D:\statusclock\start_statusclock.bat
+.\start_statusclock.bat
 ```
 
-ou
+Linux:
 
-```powershell
-cd D:\statusclock
-.venv\Scripts\python.exe -m src.statusclock
+```bash
+./start_statusclock.sh
 ```
 
-ou
+ou então arranca como módulo:
 
-```powershell
-D:\statusclock\.venv\Scripts\python.exe D:\statusclock\src\statusclock\main.py
+```bash
+python3 -m src.statusclock
 ```
 
 ### O Spotify não mostra a música
@@ -290,38 +322,37 @@ Confirma:
 - `SPOTIPY_CLIENT_ID` preenchido
 - `SPOTIPY_CLIENT_SECRET` preenchido
 - `SPOTIPY_REDIRECT_URI=http://127.0.0.1:8888/callback`
-- esse mesmo redirect URI existe no dashboard do Spotify
+- o mesmo redirect URI existe no dashboard do Spotify
 - tens o Spotify aberto e uma música em reprodução ou recentemente ativa
 
 ### O Google Calendar não mostra eventos
 
 Confirma:
 
-- `credentials.json` existe na raiz
+- `credentials.json` existe na raiz do projeto
 - a Google Calendar API está ativa no projeto certo
 - autorizaste a conta no browser
 - `GOOGLE_CALENDAR_ID=primary` ou outro ID válido
-- o teu utilizador está em `Test users`, se a app estiver em teste
+- a tua conta está em `Test users`, se a app estiver em teste
 
-### A app não abre pelo `.bat`
+### Quero reinstalar dependências
 
-Corre primeiro:
-
-```powershell
-D:\statusclock\setup_statusclock.bat
-```
-
-### Quero reinstalar as dependências todas
+Windows:
 
 ```powershell
-cd D:\statusclock
-D:\statusclock\.venv\Scripts\python.exe -m pip install --upgrade pip
-D:\statusclock\.venv\Scripts\python.exe -m pip install -r requirements.txt
+.\.venv\Scripts\python.exe -m pip install --upgrade pip
+.\.venv\Scripts\python.exe -m pip install -r requirements.txt
 ```
 
-## Dicas de uso
+Linux:
 
-- Se o ecrã for dedicado, podes configurar o Windows para arrancar a app no início de sessão.
-- Se mudares credenciais do Spotify ou Google, pode ser útil apagar os tokens antigos e autenticar de novo.
-- Se mudares de conta Google, apaga `token.json` e volta a abrir a app.
-- Se mudares de conta Spotify, apaga `.cache/spotify_token.json` e volta a abrir a app.
+```bash
+./.venv/bin/python -m pip install --upgrade pip
+./.venv/bin/python -m pip install -r requirements.txt
+```
+
+## Notas finais
+
+- O projeto foi testado em Windows.
+- Linux deve funcionar, mas não foi validado de ponta a ponta.
+- macOS não é alvo principal deste projeto e não há garantia de compatibilidade.

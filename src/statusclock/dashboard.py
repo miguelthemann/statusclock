@@ -59,6 +59,81 @@ class Worker(QRunnable):
             self.signals.success.emit(result)
 
 
+class MarqueeLabel(QLabel):
+    def __init__(self, text: str = "", parent: QWidget | None = None) -> None:
+        super().__init__(text, parent)
+        self._offset = 0
+        self._pause_ticks = 0
+        self._last_width = 0
+        self._step_px = 2
+        self._gap_px = 48
+        self._pause_duration = 30
+        self._timer = QTimer(self)
+        self._timer.timeout.connect(self._tick)
+        self._timer.start(30)
+
+    def setText(self, text: str) -> None:  # type: ignore[override]
+        super().setText(text)
+        self._offset = 0
+        self._pause_ticks = self._pause_duration
+        self.update()
+
+    def resizeEvent(self, event) -> None:  # type: ignore[override]
+        new_width = event.size().width()
+        if new_width != self._last_width:
+            self._offset = 0
+            self._pause_ticks = self._pause_duration
+            self._last_width = new_width
+        super().resizeEvent(event)
+
+    def paintEvent(self, event) -> None:  # type: ignore[override]
+        painter = QPainter(self)
+        painter.setRenderHint(QPainter.RenderHint.TextAntialiasing, True)
+        painter.setFont(self.font())
+        painter.setPen(self.palette().windowText().color())
+
+        text = self.text()
+        if not text:
+            return
+
+        rect = self.contentsRect()
+        metrics = self.fontMetrics()
+        text_width = metrics.horizontalAdvance(text)
+        baseline = rect.y() + metrics.ascent() + max(0, (rect.height() - metrics.height()) // 2)
+
+        if text_width <= rect.width():
+            painter.drawText(rect, int(self.alignment()), text)
+            return
+
+        x = rect.x() - self._offset
+        painter.setClipRect(rect)
+        painter.drawText(x, baseline, text)
+        painter.drawText(x + text_width + self._gap_px, baseline, text)
+
+    def _tick(self) -> None:
+        text = self.text()
+        if not text:
+            return
+
+        text_width = self.fontMetrics().horizontalAdvance(text)
+        available_width = self.contentsRect().width()
+        if text_width <= available_width:
+            if self._offset != 0:
+                self._offset = 0
+                self.update()
+            return
+
+        if self._pause_ticks > 0:
+            self._pause_ticks -= 1
+            return
+
+        self._offset += self._step_px
+        if self._offset >= text_width + self._gap_px:
+            self._offset = 0
+            self._pause_ticks = self._pause_duration
+        self.update()
+
+
 @dataclass(slots=True)
 class DashboardServices:
     weather: WeatherService
@@ -268,37 +343,42 @@ class StatusClockWindow(QMainWindow):
     def _show_weather(self, snapshot: object) -> None:
         weather: WeatherSnapshot = snapshot
         self.refresh_state.weather_loaded = True
-        self.weather_card.subtitle.setText(weather.location_name)
-        self.weather_card.body.setText(f"{weather.temperature_c:.1f} \u00b0C\n{weather.description}")
+        self._set_label_text(self.weather_card.subtitle, weather.location_name)
+        self._set_label_text(
+            self.weather_card.body, f"{weather.temperature_c:.1f} \u00b0C\n{weather.description}"
+        )
         self.weather_card.frame.adjustSize()
 
     def _show_weather_error(self, message: str) -> None:
-        self.weather_card.subtitle.setText("Tempo indispon\u00edvel")
+        self._set_label_text(self.weather_card.subtitle, "Tempo indispon\u00edvel")
         if not self.refresh_state.weather_loaded:
-            self.weather_card.body.setText(message)
+            self._set_label_text(self.weather_card.body, message)
 
     def _show_spotify(self, snapshot: object) -> None:
         spotify: SpotifySnapshot = snapshot
         self.refresh_state.spotify_loaded = True
-        self.spotify_card.subtitle.setText("A tocar" if spotify.is_playing else "Sem reprodu\u00e7\u00e3o")
-        self.spotify_card.body.setText(spotify.title)
+        self._set_label_text(
+            self.spotify_card.subtitle,
+            "A tocar" if spotify.is_playing else "Sem reprodu\u00e7\u00e3o",
+        )
+        self._set_label_text(self.spotify_card.body, spotify.title)
         if self.spotify_card.secondary is not None:
-            self.spotify_card.secondary.setText(spotify.artist)
+            self._set_label_text(self.spotify_card.secondary, spotify.artist)
         self._update_album_art(spotify.album_art_url)
 
     def _show_spotify_error(self, message: str) -> None:
-        self.spotify_card.subtitle.setText("Spotify indispon\u00edvel")
+        self._set_label_text(self.spotify_card.subtitle, "Spotify indispon\u00edvel")
         if not self.refresh_state.spotify_loaded:
-            self.spotify_card.body.setText(message)
+            self._set_label_text(self.spotify_card.body, message)
             if self.spotify_card.secondary is not None:
-                self.spotify_card.secondary.clear()
+                self._set_label_text(self.spotify_card.secondary, "")
 
     def _show_calendar(self, events: object) -> None:
         today_events = events
         self.refresh_state.calendar_loaded = True
-        self.calendar_card.subtitle.setText("Hoje")
+        self._set_label_text(self.calendar_card.subtitle, "Hoje")
         if not today_events:
-            self.calendar_card.body.setText("N\u00e3o tens eventos para hoje.")
+            self._set_label_text(self.calendar_card.body, "N\u00e3o tens eventos para hoje.")
             self._set_calendar_card_height(1)
             self._set_calendar_card_width(420)
             return
@@ -306,15 +386,15 @@ class StatusClockWindow(QMainWindow):
         lines = [f"{event.start_text}  {event.title}" for event in today_events[:6]]
         if len(today_events) > 6:
             lines.append(f"+ {len(today_events) - 6} eventos")
-        self.calendar_card.body.setText("\n".join(lines))
+        self._set_label_text(self.calendar_card.body, "\n".join(lines))
         self._set_calendar_card_height(len(lines))
         longest_line = max((len(line) for line in lines), default=24)
         self._set_calendar_card_width(min(920, max(420, 180 + (longest_line * 8))))
 
     def _show_calendar_error(self, message: str) -> None:
-        self.calendar_card.subtitle.setText("Agenda indispon\u00edvel")
+        self._set_label_text(self.calendar_card.subtitle, "Agenda indispon\u00edvel")
         if not self.refresh_state.calendar_loaded:
-            self.calendar_card.body.setText(message)
+            self._set_label_text(self.calendar_card.body, message)
             self._set_calendar_card_height(2)
             self._set_calendar_card_width(480)
 
@@ -494,11 +574,14 @@ class StatusClockWindow(QMainWindow):
         body_layout.setContentsMargins(0, 0, 0, 0)
         body_layout.setSpacing(12)
 
-        body_label = QLabel("A carregar...")
+        body_label = MarqueeLabel("A carregar...") if with_media else QLabel("A carregar...")
         body_label.setProperty("cardBody", True)
-        body_label.setWordWrap(True)
-        body_label.setAlignment(Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignTop)
-        body_label.setMaximumHeight(body_label.fontMetrics().lineSpacing() * 3 + 4)
+        body_label.setAlignment(Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter)
+        if with_media:
+            body_label.setFixedWidth(300)
+            body_label.setFixedHeight(body_label.fontMetrics().lineSpacing() + 8)
+        else:
+            body_label.setWordWrap(True)
 
         text_column = QWidget()
         text_layout = QVBoxLayout(text_column)
@@ -508,11 +591,11 @@ class StatusClockWindow(QMainWindow):
 
         secondary_label: QLabel | None = None
         if with_media:
-            secondary_label = QLabel("")
+            secondary_label = MarqueeLabel("")
             secondary_label.setProperty("cardSecondary", True)
-            secondary_label.setWordWrap(True)
-            secondary_label.setAlignment(Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignTop)
-            secondary_label.setMaximumHeight(secondary_label.fontMetrics().lineSpacing() * 2 + 2)
+            secondary_label.setAlignment(Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter)
+            secondary_label.setFixedWidth(300)
+            secondary_label.setFixedHeight(secondary_label.fontMetrics().lineSpacing() + 6)
             text_layout.addWidget(secondary_label)
 
         body_layout.addWidget(text_column, 1)
@@ -571,6 +654,11 @@ class StatusClockWindow(QMainWindow):
     def _finish_worker(self, worker: Worker, on_finish: Callable[[], None]) -> None:
         self._active_workers.discard(worker)
         on_finish()
+
+    @staticmethod
+    def _set_label_text(label: QLabel, text: str) -> None:
+        if label.text() != text:
+            label.setText(text)
 
 
 def launch_dashboard(services: DashboardServices) -> int:

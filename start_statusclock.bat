@@ -2,6 +2,8 @@
 setlocal
 cd /d "%~dp0"
 
+set "PROJECT_DIR=%CD%"
+
 if exist ".venv\Scripts\python.exe" (
     set "PYTHON_EXE=.venv\Scripts\python.exe"
 ) else (
@@ -12,13 +14,12 @@ if exist ".venv\Scripts\python.exe" (
 if errorlevel 1 (
     echo Dependencias em falta.
     echo.
-    echo Corre estes comandos na pasta D:\statusclock:
-    echo   python -m venv .venv
-    echo   .venv\Scripts\Activate.ps1
-    echo   pip install -r requirements.txt
+    echo Corre primeiro o setup nesta pasta:
+    echo   "%PROJECT_DIR%\setup_statusclock.bat"
     echo.
     pause
     exit /b 1
 )
 
 "%PYTHON_EXE%" -m src.statusclock
+

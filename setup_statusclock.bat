@@ -2,6 +2,8 @@
 setlocal
 cd /d "%~dp0"
 
+set "PROJECT_DIR=%CD%"
+
 if not exist ".venv\Scripts\python.exe" (
     python -m venv .venv
 )
@@ -15,7 +17,9 @@ if not exist ".env" if exist ".env.example" (
 )
 
 echo.
-echo Setup concluido.
+echo Setup concluido em:
+echo   %PROJECT_DIR%
 echo.
 echo Para arrancar a app:
-echo   D:\statusclock\start_statusclock.bat
+echo   "%PROJECT_DIR%\start_statusclock.bat"
+
