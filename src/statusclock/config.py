@@ -34,11 +34,12 @@ class AppConfig:
             weather_location=os.getenv("WEATHER_LOCATION"),
             weather_lat=_optional_float(os.getenv("WEATHER_LAT")),
             weather_lon=_optional_float(os.getenv("WEATHER_LON")),
-            spotify_client_id=os.getenv("SPOTIPY_CLIENT_ID"),
-            spotify_client_secret=os.getenv("SPOTIPY_CLIENT_SECRET"),
-            spotify_redirect_uri=os.getenv("SPOTIPY_REDIRECT_URI"),
+            spotify_client_id=_env_with_legacy("SPOTIFY_CLIENT_ID", "SPOTIPY_CLIENT_ID"),
+            spotify_client_secret=_env_with_legacy("SPOTIFY_CLIENT_SECRET", "SPOTIPY_CLIENT_SECRET"),
+            spotify_redirect_uri=_env_with_legacy("SPOTIFY_REDIRECT_URI", "SPOTIPY_REDIRECT_URI"),
             spotify_cache_path=_resolve_path(
-                os.getenv("SPOTIPY_CACHE_PATH"), PROJECT_ROOT / ".cache" / "spotify_token.json"
+                _env_with_legacy("SPOTIFY_CACHE_PATH", "SPOTIPY_CACHE_PATH"),
+                PROJECT_ROOT / ".cache" / "spotify_token.json",
             ),
             google_calendar_id=os.getenv("GOOGLE_CALENDAR_ID", "primary"),
             google_credentials_path=_resolve_path(
@@ -64,3 +65,7 @@ def _resolve_path(value: str | None, default: Path) -> Path:
     if candidate.is_absolute():
         return candidate
     return PROJECT_ROOT / candidate
+
+
+def _env_with_legacy(primary: str, legacy: str) -> str | None:
+    return os.getenv(primary) or os.getenv(legacy)

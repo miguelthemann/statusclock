@@ -117,9 +117,9 @@ APP_LANGUAGE=it
 
 WEATHER_LOCATION=Rome
 
-SPOTIPY_CLIENT_ID=inserisci_il_client_id
-SPOTIPY_CLIENT_SECRET=inserisci_il_client_secret
-SPOTIPY_REDIRECT_URI=http://127.0.0.1:8888/callback
+SPOTIFY_CLIENT_ID=inserisci_il_client_id
+SPOTIFY_CLIENT_SECRET=inserisci_il_client_secret
+SPOTIFY_REDIRECT_URI=http://127.0.0.1:8888/callback
 
 GOOGLE_CALENDAR_ID=primary
 ```
@@ -185,9 +185,9 @@ http://127.0.0.1:8888/callback
 ### `.env`
 
 ```env
-SPOTIPY_CLIENT_ID=il_tuo_client_id
-SPOTIPY_CLIENT_SECRET=il_tuo_client_secret
-SPOTIPY_REDIRECT_URI=http://127.0.0.1:8888/callback
+SPOTIFY_CLIENT_ID=il_tuo_client_id
+SPOTIFY_CLIENT_SECRET=il_tuo_client_secret
+SPOTIFY_REDIRECT_URI=http://127.0.0.1:8888/callback
 ```
 
 ### Note
@@ -335,9 +335,9 @@ python3 -m src.statusclock
 
 Controlla:
 
-- `SPOTIPY_CLIENT_ID` impostato
-- `SPOTIPY_CLIENT_SECRET` impostato
-- `SPOTIPY_REDIRECT_URI=http://127.0.0.1:8888/callback`
+- `SPOTIFY_CLIENT_ID` impostato
+- `SPOTIFY_CLIENT_SECRET` impostato
+- `SPOTIFY_REDIRECT_URI=http://127.0.0.1:8888/callback`
 - lo stesso redirect URI esiste nel dashboard Spotify
 - Spotify è aperto e c'è una riproduzione attiva o recente
 
