@@ -16,6 +16,8 @@ from PySide6.QtWidgets import (
     QLabel,
     QMainWindow,
     QSizePolicy,
+    QStyle,
+    QStyleOption,
     QVBoxLayout,
     QWidget,
 )
@@ -89,6 +91,9 @@ class MarqueeLabel(QLabel):
 
     def paintEvent(self, event) -> None:  # type: ignore[override]
         painter = QPainter(self)
+        option = QStyleOption()
+        option.initFrom(self)
+        self.style().drawPrimitive(QStyle.PrimitiveElement.PE_Widget, option, painter, self)
         painter.setRenderHint(QPainter.RenderHint.TextAntialiasing, True)
         painter.setFont(self.font())
         painter.setPen(self.palette().windowText().color())
