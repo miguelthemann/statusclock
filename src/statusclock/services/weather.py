@@ -4,6 +4,8 @@ from dataclasses import dataclass
 
 import requests
 
+from ..i18n import I18N
+
 
 USER_AGENT = "statusclock/1.0"
 
@@ -22,11 +24,13 @@ class WeatherService:
         location_name: str | None,
         latitude: float | None,
         longitude: float | None,
+        i18n: I18N,
         timeout: float = 8.0,
     ) -> None:
         self.location_name = location_name
         self.latitude = latitude
         self.longitude = longitude
+        self.i18n = i18n
         self.timeout = timeout
 
     def is_configured(self) -> bool:
@@ -56,16 +60,20 @@ class WeatherService:
         return WeatherSnapshot(
             location_name=resolved_name,
             temperature_c=float(current["temperature_2m"]),
-            description=weather_code_to_text(int(current["weather_code"])),
+            description=weather_code_to_text(int(current["weather_code"]), self.i18n),
         )
 
     def _resolve_location(self) -> tuple[float, float, str]:
         if self.latitude is not None and self.longitude is not None:
-            return self.latitude, self.longitude, self.location_name or "Localiza\u00e7\u00e3o"
+            return (
+                self.latitude,
+                self.longitude,
+                self.location_name or self.i18n.t("weather_default_location"),
+            )
 
         response = requests.get(
             "https://geocoding-api.open-meteo.com/v1/search",
-            params={"name": self.location_name, "count": 1, "language": "pt"},
+            params={"name": self.location_name, "count": 1, "language": self.i18n.language},
             headers={"User-Agent": USER_AGENT},
             timeout=self.timeout,
         )
@@ -73,7 +81,7 @@ class WeatherService:
         payload = response.json()
         results = payload.get("results") or []
         if not results:
-            raise RuntimeError(f"N\u00e3o foi poss\u00edvel encontrar '{self.location_name}'.")
+            raise RuntimeError(self.i18n.t("weather_not_found", location=self.location_name))
 
         first = results[0]
         name = ", ".join(
@@ -82,35 +90,35 @@ class WeatherService:
         return float(first["latitude"]), float(first["longitude"]), name
 
 
-def weather_code_to_text(code: int) -> str:
+def weather_code_to_text(code: int, i18n: I18N) -> str:
     mapping = {
-        0: "C\u00e9u limpo",
-        1: "Pouco nublado",
-        2: "Parcialmente nublado",
-        3: "Muito nublado",
-        45: "Nevoeiro",
-        48: "Nevoeiro gelado",
-        51: "Chuvisco fraco",
-        53: "Chuvisco",
-        55: "Chuvisco forte",
-        56: "Chuvisco gelado fraco",
-        57: "Chuvisco gelado forte",
-        61: "Chuva fraca",
-        63: "Chuva",
-        65: "Chuva forte",
-        66: "Chuva gelada fraca",
-        67: "Chuva gelada forte",
-        71: "Neve fraca",
-        73: "Neve",
-        75: "Neve forte",
-        77: "Gr\u00e3os de neve",
-        80: "Aguaceiros fracos",
-        81: "Aguaceiros",
-        82: "Aguaceiros fortes",
-        85: "Aguaceiros de neve fracos",
-        86: "Aguaceiros de neve fortes",
-        95: "Trovoada",
-        96: "Trovoada com granizo fraco",
-        99: "Trovoada com granizo forte",
+        0: i18n.t("weather_clear"),
+        1: i18n.t("weather_mainly_clear"),
+        2: i18n.t("weather_partly_cloudy"),
+        3: i18n.t("weather_overcast"),
+        45: i18n.t("weather_fog"),
+        48: i18n.t("weather_rime_fog"),
+        51: i18n.t("weather_light_drizzle"),
+        53: i18n.t("weather_drizzle"),
+        55: i18n.t("weather_dense_drizzle"),
+        56: i18n.t("weather_light_freezing_drizzle"),
+        57: i18n.t("weather_dense_freezing_drizzle"),
+        61: i18n.t("weather_light_rain"),
+        63: i18n.t("weather_rain"),
+        65: i18n.t("weather_heavy_rain"),
+        66: i18n.t("weather_light_freezing_rain"),
+        67: i18n.t("weather_heavy_freezing_rain"),
+        71: i18n.t("weather_light_snow"),
+        73: i18n.t("weather_snow"),
+        75: i18n.t("weather_heavy_snow"),
+        77: i18n.t("weather_snow_grains"),
+        80: i18n.t("weather_light_showers"),
+        81: i18n.t("weather_showers"),
+        82: i18n.t("weather_heavy_showers"),
+        85: i18n.t("weather_light_snow_showers"),
+        86: i18n.t("weather_heavy_snow_showers"),
+        95: i18n.t("weather_thunderstorm"),
+        96: i18n.t("weather_thunderstorm_hail_light"),
+        99: i18n.t("weather_thunderstorm_hail_heavy"),
     }
-    return mapping.get(code, "Estado desconhecido")
+    return mapping.get(code, i18n.t("weather_unknown"))

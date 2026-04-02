@@ -1,3 +1,5 @@
+[PT](README.md) | [EN](README.en.md) | [IT](README.it.md)
+
 # Status Clock
 
 Painel fullscreen em Python para mostrar:
@@ -111,6 +113,8 @@ cp .env.example .env
 ### Exemplo de `.env`
 
 ```env
+APP_LANGUAGE=pt
+
 WEATHER_LOCATION=Lisbon
 
 SPOTIPY_CLIENT_ID=coloca_aqui_o_client_id
@@ -118,6 +122,18 @@ SPOTIPY_CLIENT_SECRET=coloca_aqui_o_client_secret
 SPOTIPY_REDIRECT_URI=http://127.0.0.1:8888/callback
 
 GOOGLE_CALENDAR_ID=primary
+```
+
+### Línguas suportadas
+
+- `pt`: português
+- `en`: inglês
+- `it`: italiano
+
+Define a língua da interface com:
+
+```env
+APP_LANGUAGE=pt
 ```
 
 ## Configurar a meteorologia

@@ -5,7 +5,7 @@ from datetime import datetime
 from typing import Callable
 
 import requests
-from PySide6.QtCore import QLocale, QObject, QRunnable, QThreadPool, QTimer, Qt, Signal
+from PySide6.QtCore import QObject, QRunnable, QThreadPool, QTimer, Qt, Signal
 from PySide6.QtGui import QAction, QColor, QFont, QKeySequence, QPainter, QPixmap
 from PySide6.QtSvg import QSvgRenderer
 from PySide6.QtWidgets import (
@@ -20,6 +20,7 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
+from .i18n import I18N, get_qlocale
 from .services.calendar_service import GoogleCalendarService
 from .services.spotify import SpotifyService, SpotifySnapshot
 from .services.weather import WeatherService, WeatherSnapshot
@@ -136,6 +137,7 @@ class MarqueeLabel(QLabel):
 
 @dataclass(slots=True)
 class DashboardServices:
+    i18n: I18N
     weather: WeatherService
     spotify: SpotifyService
     calendar: GoogleCalendarService
@@ -165,14 +167,15 @@ class StatusClockWindow(QMainWindow):
     def __init__(self, services: DashboardServices) -> None:
         super().__init__()
         self.services = services
+        self.i18n = services.i18n
         self.thread_pool = QThreadPool(self)
-        self.locale = QLocale(QLocale.Language.Portuguese, QLocale.Country.Portugal)
+        self.locale = get_qlocale(self.i18n.language)
         self.refresh_state = _RefreshState()
         self._closing = False
         self._album_art_url: str | None = None
         self._active_workers: set[Worker] = set()
 
-        self.setWindowTitle("Status Clock")
+        self.setWindowTitle(self.i18n.t("app_title"))
         self.setMinimumSize(1280, 720)
         self._build_ui()
         self._build_shortcuts()
@@ -193,15 +196,15 @@ class StatusClockWindow(QMainWindow):
         top_row.setSpacing(14)
         shell.addLayout(top_row)
 
-        self.weather_card = self._create_card("Tempo")
-        self.weather_card.body.setText("Configura a localiza\u00e7\u00e3o para mostrar o tempo.")
+        self.weather_card = self._create_card(self.i18n.t("weather_title"))
+        self.weather_card.body.setText(self.i18n.t("weather_setup"))
         self.weather_card.frame.setSizePolicy(QSizePolicy.Policy.Maximum, QSizePolicy.Policy.Preferred)
         self.weather_card.frame.setMaximumWidth(360)
 
-        self.spotify_card = self._create_card("Spotify", with_media=True)
-        self.spotify_card.body.setText("Configura o Spotify")
+        self.spotify_card = self._create_card(self.i18n.t("spotify_title"), with_media=True)
+        self.spotify_card.body.setText(self.i18n.t("spotify_setup_title"))
         if self.spotify_card.secondary is not None:
-            self.spotify_card.secondary.setText("para mostrar a m\u00fasica atual.")
+            self.spotify_card.secondary.setText(self.i18n.t("spotify_setup_subtitle"))
         self.spotify_card.frame.setSizePolicy(QSizePolicy.Policy.Maximum, QSizePolicy.Policy.Preferred)
         self.spotify_card.frame.setMinimumWidth(480)
         self.spotify_card.frame.setMaximumWidth(480)
@@ -228,16 +231,14 @@ class StatusClockWindow(QMainWindow):
         )
         center_layout.addWidget(self.clock_label)
 
-        self.date_label = QLabel("A carregar data...")
+        self.date_label = QLabel(self.i18n.t("date_loading"))
         self.date_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self.date_label.setObjectName("dateLabel")
         self.date_label.setFont(QFont("Segoe UI Semibold", 22))
         center_layout.addWidget(self.date_label)
 
-        self.calendar_card = self._create_card("Agenda de Hoje", title_icon_svg=CALENDAR_ICON_SVG)
-        self.calendar_card.body.setText(
-            "Configura o Google Calendar para mostrar os eventos de hoje."
-        )
+        self.calendar_card = self._create_card(self.i18n.t("calendar_title"), title_icon_svg=CALENDAR_ICON_SVG)
+        self.calendar_card.body.setText(self.i18n.t("calendar_setup"))
         self.calendar_card.frame.setSizePolicy(QSizePolicy.Policy.Maximum, QSizePolicy.Policy.Preferred)
         self.calendar_card.frame.setMinimumWidth(420)
         self._set_calendar_card_height(2)
@@ -256,7 +257,7 @@ class StatusClockWindow(QMainWindow):
         footer_row = QHBoxLayout()
         footer_row.setContentsMargins(0, 0, 0, 0)
         footer_row.addStretch(1)
-        self.easter_egg_label = QLabel("A vida é mesmo life. - J. T. 2026")
+        self.easter_egg_label = QLabel(self.i18n.t("easter_egg"))
         self.easter_egg_label.setObjectName("easterEggLabel")
         footer_row.addWidget(self.easter_egg_label, 0, Qt.AlignmentFlag.AlignRight)
         shell.addLayout(footer_row)
@@ -294,7 +295,7 @@ class StatusClockWindow(QMainWindow):
     def _refresh_clock(self) -> None:
         now = datetime.now().astimezone()
         self.clock_label.setText(now.strftime(CLOCK_FORMAT))
-        self.date_label.setText(self.locale.toString(now, "dddd, d 'de' MMMM 'de' yyyy"))
+        self.date_label.setText(self.locale.toString(now, "dddd, d MMMM yyyy"))
 
     def refresh_all(self) -> None:
         self.refresh_weather()
@@ -306,7 +307,7 @@ class StatusClockWindow(QMainWindow):
             return
         self.refresh_state.weather_busy = True
         if not self.refresh_state.weather_loaded:
-            self.weather_card.subtitle.setText("A carregar...")
+            self.weather_card.subtitle.setText(self.i18n.t("loading"))
         self._run_async(
             self.services.weather.fetch,
             on_success=self._show_weather,
@@ -319,7 +320,7 @@ class StatusClockWindow(QMainWindow):
             return
         self.refresh_state.spotify_busy = True
         if not self.refresh_state.spotify_loaded:
-            self.spotify_card.subtitle.setText("A ligar ao Spotify...")
+            self.spotify_card.subtitle.setText(self.i18n.t("spotify_connecting"))
         self._run_async(
             self.services.spotify.fetch,
             on_success=self._show_spotify,
@@ -332,7 +333,7 @@ class StatusClockWindow(QMainWindow):
             return
         self.refresh_state.calendar_busy = True
         if not self.refresh_state.calendar_loaded:
-            self.calendar_card.subtitle.setText("A carregar...")
+            self.calendar_card.subtitle.setText(self.i18n.t("loading"))
         self._run_async(
             self.services.calendar.fetch_today,
             on_success=self._show_calendar,
@@ -350,7 +351,7 @@ class StatusClockWindow(QMainWindow):
         self.weather_card.frame.adjustSize()
 
     def _show_weather_error(self, message: str) -> None:
-        self._set_label_text(self.weather_card.subtitle, "Tempo indispon\u00edvel")
+        self._set_label_text(self.weather_card.subtitle, self.i18n.t("weather_unavailable"))
         if not self.refresh_state.weather_loaded:
             self._set_label_text(self.weather_card.body, message)
 
@@ -359,7 +360,7 @@ class StatusClockWindow(QMainWindow):
         self.refresh_state.spotify_loaded = True
         self._set_label_text(
             self.spotify_card.subtitle,
-            "A tocar" if spotify.is_playing else "Sem reprodu\u00e7\u00e3o",
+            self.i18n.t("spotify_playing") if spotify.is_playing else self.i18n.t("spotify_not_playing"),
         )
         self._set_label_text(self.spotify_card.body, spotify.title)
         if self.spotify_card.secondary is not None:
@@ -367,7 +368,7 @@ class StatusClockWindow(QMainWindow):
         self._update_album_art(spotify.album_art_url)
 
     def _show_spotify_error(self, message: str) -> None:
-        self._set_label_text(self.spotify_card.subtitle, "Spotify indispon\u00edvel")
+        self._set_label_text(self.spotify_card.subtitle, self.i18n.t("spotify_unavailable"))
         if not self.refresh_state.spotify_loaded:
             self._set_label_text(self.spotify_card.body, message)
             if self.spotify_card.secondary is not None:
@@ -376,23 +377,23 @@ class StatusClockWindow(QMainWindow):
     def _show_calendar(self, events: object) -> None:
         today_events = events
         self.refresh_state.calendar_loaded = True
-        self._set_label_text(self.calendar_card.subtitle, "Hoje")
+        self._set_label_text(self.calendar_card.subtitle, self.i18n.t("calendar_today"))
         if not today_events:
-            self._set_label_text(self.calendar_card.body, "N\u00e3o tens eventos para hoje.")
+            self._set_label_text(self.calendar_card.body, self.i18n.t("calendar_no_events"))
             self._set_calendar_card_height(1)
             self._set_calendar_card_width(420)
             return
 
         lines = [f"{event.start_text}  {event.title}" for event in today_events[:6]]
         if len(today_events) > 6:
-            lines.append(f"+ {len(today_events) - 6} eventos")
+            lines.append(self.i18n.t("calendar_more_events", count=len(today_events) - 6))
         self._set_label_text(self.calendar_card.body, "\n".join(lines))
         self._set_calendar_card_height(len(lines))
         longest_line = max((len(line) for line in lines), default=24)
         self._set_calendar_card_width(min(920, max(420, 180 + (longest_line * 8))))
 
     def _show_calendar_error(self, message: str) -> None:
-        self._set_label_text(self.calendar_card.subtitle, "Agenda indispon\u00edvel")
+        self._set_label_text(self.calendar_card.subtitle, self.i18n.t("calendar_unavailable"))
         if not self.refresh_state.calendar_loaded:
             self._set_label_text(self.calendar_card.body, message)
             self._set_calendar_card_height(2)
@@ -403,7 +404,7 @@ class StatusClockWindow(QMainWindow):
             return
         if not url:
             self.spotify_card.media.clear()
-            self.spotify_card.media.setText("Sem capa")
+            self.spotify_card.media.setText(self.i18n.t("album_missing"))
             self._album_art_url = None
             return
         if url == self._album_art_url:
@@ -415,14 +416,14 @@ class StatusClockWindow(QMainWindow):
             response.raise_for_status()
         except requests.RequestException:
             self.spotify_card.media.clear()
-            self.spotify_card.media.setText("Capa indispon\u00edvel")
+            self.spotify_card.media.setText(self.i18n.t("album_unavailable"))
             return
 
         pixmap = QPixmap()
         pixmap.loadFromData(response.content)
         if pixmap.isNull():
             self.spotify_card.media.clear()
-            self.spotify_card.media.setText("Capa indispon\u00edvel")
+            self.spotify_card.media.setText(self.i18n.t("album_unavailable"))
             return
 
         self.spotify_card.media.setPixmap(
@@ -574,7 +575,7 @@ class StatusClockWindow(QMainWindow):
         body_layout.setContentsMargins(0, 0, 0, 0)
         body_layout.setSpacing(12)
 
-        body_label = MarqueeLabel("A carregar...") if with_media else QLabel("A carregar...")
+        body_label = MarqueeLabel(self.i18n.t("loading")) if with_media else QLabel(self.i18n.t("loading"))
         body_label.setProperty("cardBody", True)
         body_label.setAlignment(Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter)
         if with_media:
@@ -602,7 +603,7 @@ class StatusClockWindow(QMainWindow):
 
         media_label: QLabel | None = None
         if with_media:
-            media_label = QLabel("Sem capa")
+            media_label = QLabel(self.i18n.t("album_missing"))
             media_label.setProperty("media", True)
             media_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
             media_label.setFixedSize(108, 108)
@@ -663,7 +664,7 @@ class StatusClockWindow(QMainWindow):
 
 def launch_dashboard(services: DashboardServices) -> int:
     app = QApplication.instance() or QApplication([])
-    app.setApplicationName("Status Clock")
+    app.setApplicationName(services.i18n.t("app_title"))
     window = StatusClockWindow(services)
     app.aboutToQuit.connect(window.deleteLater)
     window.showFullScreen()

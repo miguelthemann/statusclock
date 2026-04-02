@@ -10,34 +10,41 @@ if __package__ in (None, ""):
 
     from src.statusclock.config import AppConfig
     from src.statusclock.dashboard import DashboardServices, launch_dashboard
+    from src.statusclock.i18n import I18N
     from src.statusclock.services.calendar_service import GoogleCalendarService
     from src.statusclock.services.spotify import SpotifyService
     from src.statusclock.services.weather import WeatherService
 else:
     from .config import AppConfig
     from .dashboard import DashboardServices, launch_dashboard
+    from .i18n import I18N
     from .services.calendar_service import GoogleCalendarService
     from .services.spotify import SpotifyService
     from .services.weather import WeatherService
 
 
 def build_services(config: AppConfig) -> DashboardServices:
+    i18n = I18N(config.language)
     return DashboardServices(
+        i18n=i18n,
         weather=WeatherService(
             location_name=config.weather_location,
             latitude=config.weather_lat,
             longitude=config.weather_lon,
+            i18n=i18n,
         ),
         spotify=SpotifyService(
             client_id=config.spotify_client_id,
             client_secret=config.spotify_client_secret,
             redirect_uri=config.spotify_redirect_uri,
             cache_path=config.spotify_cache_path,
+            i18n=i18n,
         ),
         calendar=GoogleCalendarService(
             credentials_path=config.google_credentials_path,
             token_path=config.google_token_path,
             calendar_id=config.google_calendar_id,
+            i18n=i18n,
         ),
     )
 

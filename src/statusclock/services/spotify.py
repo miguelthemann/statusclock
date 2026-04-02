@@ -8,6 +8,8 @@ from spotipy.exceptions import SpotifyException
 from spotipy.oauth2 import SpotifyOAuth
 from spotipy.oauth2 import SpotifyOauthError
 
+from ..i18n import I18N
+
 
 SCOPE = "user-read-currently-playing user-read-playback-state"
 
@@ -28,11 +30,13 @@ class SpotifyService:
         client_secret: str | None,
         redirect_uri: str | None,
         cache_path: Path,
+        i18n: I18N,
     ) -> None:
         self.client_id = client_id
         self.client_secret = client_secret
         self.redirect_uri = redirect_uri
         self.cache_path = cache_path
+        self.i18n = i18n
         self._auth_manager: SpotifyOAuth | None = None
         self._client: spotipy.Spotify | None = None
 
@@ -41,7 +45,7 @@ class SpotifyService:
 
     def fetch(self) -> SpotifySnapshot:
         if not self.is_configured():
-            raise RuntimeError("Configura as variaveis SPOTIPY_CLIENT_ID/SECRET/REDIRECT_URI.")
+            raise RuntimeError(self.i18n.t("spotify_missing_config"))
 
         self.cache_path.parent.mkdir(parents=True, exist_ok=True)
 
@@ -51,24 +55,24 @@ class SpotifyService:
             if not playback:
                 playback = client.current_user_playing_track()
         except SpotifyOauthError as exc:
-            raise RuntimeError(
-                "Falha na autenticacao Spotify. Confirma client id, secret e redirect URI."
-            ) from exc
+            raise RuntimeError(self.i18n.t("spotify_auth_error")) from exc
         except SpotifyException as exc:
-            raise RuntimeError(f"Erro Spotify: {exc.msg}") from exc
+            raise RuntimeError(self.i18n.t("spotify_api_error", message=exc.msg)) from exc
 
         if not playback:
             return SpotifySnapshot(
-                title="Sem reprodução ativa",
-                artist="Abre o Spotify para mostrar a música atual",
+                title=self.i18n.t("spotify_no_playback_title"),
+                artist=self.i18n.t("spotify_no_playback_artist"),
                 is_playing=False,
                 album_art_url=None,
             )
 
         item = playback.get("item") or {}
         artists = item.get("artists") or []
-        artist_names = ", ".join(artist["name"] for artist in artists) or "Artista desconhecido"
-        title = item.get("name") or "Faixa desconhecida"
+        artist_names = ", ".join(artist["name"] for artist in artists) or self.i18n.t(
+            "spotify_unknown_artist"
+        )
+        title = item.get("name") or self.i18n.t("spotify_unknown_track")
         album = item.get("album") or {}
         images = album.get("images") or []
         album_art_url = images[1]["url"] if len(images) > 1 else (images[0]["url"] if images else None)

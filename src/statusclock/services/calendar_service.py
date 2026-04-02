@@ -7,8 +7,10 @@ from pathlib import Path
 from google.auth.transport.requests import Request
 from google.oauth2.credentials import Credentials
 from google_auth_oauthlib.flow import InstalledAppFlow
-from googleapiclient.errors import HttpError
 from googleapiclient.discovery import build
+from googleapiclient.errors import HttpError
+
+from ..i18n import I18N
 
 
 SCOPES = ["https://www.googleapis.com/auth/calendar.readonly"]
@@ -27,17 +29,19 @@ class GoogleCalendarService:
         credentials_path: Path,
         token_path: Path,
         calendar_id: str,
+        i18n: I18N,
     ) -> None:
         self.credentials_path = credentials_path
         self.token_path = token_path
         self.calendar_id = calendar_id
+        self.i18n = i18n
 
     def is_configured(self) -> bool:
         return self.credentials_path.exists()
 
     def fetch_today(self) -> list[CalendarEvent]:
         if not self.is_configured():
-            raise RuntimeError("Falta o ficheiro credentials.json do Google Calendar.")
+            raise RuntimeError(self.i18n.t("calendar_missing_credentials"))
 
         try:
             creds = self._load_credentials()
@@ -59,9 +63,7 @@ class GoogleCalendarService:
                 .execute()
             )
         except HttpError as exc:
-            raise RuntimeError(
-                "Erro Google Calendar. Confirma o calendario escolhido e as permissoes OAuth."
-            ) from exc
+            raise RuntimeError(self.i18n.t("calendar_api_error")) from exc
 
         items = response.get("items", [])
 
@@ -71,7 +73,7 @@ class GoogleCalendarService:
             start_text = self._format_start(start_data)
             events.append(
                 CalendarEvent(
-                    title=item.get("summary", "Sem titulo"),
+                    title=item.get("summary", self.i18n.t("calendar_untitled")),
                     start_text=start_text,
                 )
             )
@@ -94,11 +96,10 @@ class GoogleCalendarService:
 
         return creds
 
-    @staticmethod
-    def _format_start(start_data: dict) -> str:
+    def _format_start(self, start_data: dict) -> str:
         if "dateTime" in start_data:
             start_dt = datetime.fromisoformat(start_data["dateTime"].replace("Z", "+00:00"))
             return start_dt.astimezone().strftime("%H:%M")
         if "date" in start_data:
-            return "Todo o dia"
-        return "Hora desconhecida"
+            return self.i18n.t("calendar_all_day")
+        return self.i18n.t("calendar_unknown_time")

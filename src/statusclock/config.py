@@ -6,6 +6,8 @@ from pathlib import Path
 
 from dotenv import load_dotenv
 
+from .i18n import DEFAULT_LANGUAGE, normalize_language
+
 
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
 load_dotenv(PROJECT_ROOT / ".env")
@@ -13,6 +15,7 @@ load_dotenv(PROJECT_ROOT / ".env")
 
 @dataclass(slots=True)
 class AppConfig:
+    language: str
     weather_location: str | None
     weather_lat: float | None
     weather_lon: float | None
@@ -27,6 +30,7 @@ class AppConfig:
     @classmethod
     def from_env(cls) -> "AppConfig":
         return cls(
+            language=normalize_language(os.getenv("APP_LANGUAGE", DEFAULT_LANGUAGE)),
             weather_location=os.getenv("WEATHER_LOCATION"),
             weather_lat=_optional_float(os.getenv("WEATHER_LAT")),
             weather_lon=_optional_float(os.getenv("WEATHER_LON")),
