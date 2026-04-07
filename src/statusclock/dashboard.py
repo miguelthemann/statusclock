@@ -143,6 +143,9 @@ class MarqueeLabel(QLabel):
 @dataclass(slots=True)
 class DashboardServices:
     i18n: I18N
+    enable_weather: bool
+    enable_spotify: bool
+    enable_calendar: bool
     weather: WeatherService
     spotify: SpotifyService
     calendar: GoogleCalendarService
@@ -216,9 +219,23 @@ class StatusClockWindow(QMainWindow):
         if self.spotify_card.text_column is not None:
             self.spotify_card.text_column.setFixedWidth(300)
 
-        top_row.addWidget(self.weather_card.frame, 0, Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignTop)
+        if self.services.enable_weather:
+            top_row.addWidget(
+                self.weather_card.frame,
+                0,
+                Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignTop,
+            )
+        else:
+            self.weather_card.frame.hide()
         top_row.addStretch(1)
-        top_row.addWidget(self.spotify_card.frame, 0, Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignTop)
+        if self.services.enable_spotify:
+            top_row.addWidget(
+                self.spotify_card.frame,
+                0,
+                Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignTop,
+            )
+        else:
+            self.spotify_card.frame.hide()
 
         center = QWidget()
         center_layout = QVBoxLayout(center)
@@ -251,11 +268,14 @@ class StatusClockWindow(QMainWindow):
         bottom_row = QHBoxLayout()
         bottom_row.setContentsMargins(0, 0, 0, 0)
         bottom_row.addStretch(1)
-        bottom_row.addWidget(
-            self.calendar_card.frame,
-            0,
-            Qt.AlignmentFlag.AlignHCenter | Qt.AlignmentFlag.AlignBottom,
-        )
+        if self.services.enable_calendar:
+            bottom_row.addWidget(
+                self.calendar_card.frame,
+                0,
+                Qt.AlignmentFlag.AlignHCenter | Qt.AlignmentFlag.AlignBottom,
+            )
+        else:
+            self.calendar_card.frame.hide()
         bottom_row.addStretch(1)
         shell.addLayout(bottom_row)
 
@@ -285,17 +305,23 @@ class StatusClockWindow(QMainWindow):
         self.clock_timer.timeout.connect(self._refresh_clock)
         self.clock_timer.start(1000)
 
-        self.weather_timer = QTimer(self)
-        self.weather_timer.timeout.connect(self.refresh_weather)
-        self.weather_timer.start(10 * 60 * 1000)
+        self.weather_timer: QTimer | None = None
+        if self.services.enable_weather:
+            self.weather_timer = QTimer(self)
+            self.weather_timer.timeout.connect(self.refresh_weather)
+            self.weather_timer.start(10 * 60 * 1000)
 
-        self.spotify_timer = QTimer(self)
-        self.spotify_timer.timeout.connect(self.refresh_spotify)
-        self.spotify_timer.start(2 * 1000)
+        self.spotify_timer: QTimer | None = None
+        if self.services.enable_spotify:
+            self.spotify_timer = QTimer(self)
+            self.spotify_timer.timeout.connect(self.refresh_spotify)
+            self.spotify_timer.start(2 * 1000)
 
-        self.calendar_timer = QTimer(self)
-        self.calendar_timer.timeout.connect(self.refresh_calendar)
-        self.calendar_timer.start(10 * 60 * 1000)
+        self.calendar_timer: QTimer | None = None
+        if self.services.enable_calendar:
+            self.calendar_timer = QTimer(self)
+            self.calendar_timer.timeout.connect(self.refresh_calendar)
+            self.calendar_timer.start(10 * 60 * 1000)
 
     def _refresh_clock(self) -> None:
         now = datetime.now().astimezone()
@@ -303,11 +329,16 @@ class StatusClockWindow(QMainWindow):
         self.date_label.setText(self.locale.toString(now, "dddd, d MMMM yyyy"))
 
     def refresh_all(self) -> None:
-        self.refresh_weather()
-        self.refresh_spotify()
-        self.refresh_calendar()
+        if self.services.enable_weather:
+            self.refresh_weather()
+        if self.services.enable_spotify:
+            self.refresh_spotify()
+        if self.services.enable_calendar:
+            self.refresh_calendar()
 
     def refresh_weather(self) -> None:
+        if not self.services.enable_weather:
+            return
         if self.refresh_state.weather_busy or self._closing:
             return
         self.refresh_state.weather_busy = True
@@ -321,6 +352,8 @@ class StatusClockWindow(QMainWindow):
         )
 
     def refresh_spotify(self) -> None:
+        if not self.services.enable_spotify:
+            return
         if self.refresh_state.spotify_busy or self._closing:
             return
         self.refresh_state.spotify_busy = True
@@ -334,6 +367,8 @@ class StatusClockWindow(QMainWindow):
         )
 
     def refresh_calendar(self) -> None:
+        if not self.services.enable_calendar:
+            return
         if self.refresh_state.calendar_busy or self._closing:
             return
         self.refresh_state.calendar_busy = True
@@ -464,8 +499,14 @@ class StatusClockWindow(QMainWindow):
 
     def closeEvent(self, event) -> None:  # type: ignore[override]
         self._closing = True
-        for timer in (self.clock_timer, self.weather_timer, self.spotify_timer, self.calendar_timer):
-            timer.stop()
+        for timer in (
+            self.clock_timer,
+            self.weather_timer,
+            self.spotify_timer,
+            self.calendar_timer,
+        ):
+            if timer is not None:
+                timer.stop()
         self.thread_pool.clear()
         self.thread_pool.waitForDone(3000)
         QApplication.instance().quit()

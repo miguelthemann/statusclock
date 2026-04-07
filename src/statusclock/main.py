@@ -9,6 +9,7 @@ if __package__ in (None, ""):
         sys.path.insert(0, str(package_root))
 
     from src.statusclock.config import AppConfig
+    from src.statusclock.cli import launch_cli
     from src.statusclock.dashboard import DashboardServices, launch_dashboard
     from src.statusclock.i18n import I18N
     from src.statusclock.services.calendar_service import GoogleCalendarService
@@ -16,6 +17,7 @@ if __package__ in (None, ""):
     from src.statusclock.services.weather import WeatherService
 else:
     from .config import AppConfig
+    from .cli import launch_cli
     from .dashboard import DashboardServices, launch_dashboard
     from .i18n import I18N
     from .services.calendar_service import GoogleCalendarService
@@ -27,6 +29,9 @@ def build_services(config: AppConfig) -> DashboardServices:
     i18n = I18N(config.language)
     return DashboardServices(
         i18n=i18n,
+        enable_weather=config.enable_weather,
+        enable_spotify=config.enable_spotify,
+        enable_calendar=config.enable_google_calendar,
         weather=WeatherService(
             location_name=config.weather_location,
             latitude=config.weather_lat,
@@ -52,6 +57,8 @@ def build_services(config: AppConfig) -> DashboardServices:
 def main() -> int:
     config = AppConfig.from_env()
     services = build_services(config)
+    if config.app_mode == "cli":
+        return launch_cli(services)
     return launch_dashboard(services)
 
 

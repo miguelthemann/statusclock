@@ -2,23 +2,23 @@
 
 # Status Clock
 
-Fullscreen Python dashboard that shows:
+Fullscreen Python dashboard built to run 24/7 and show:
 
 - central clock with seconds
 - current date
 - weather for your location
 - current Spotify song
-- today's Google Calendar events
+- today's Google Calendar agenda
 
-It is intended to run 24/7 on a dedicated display.
+It can run in graphical mode (`gui`) or terminal mode (`cli`), and the Spotify and Google Calendar modules can be enabled or disabled in `.env`.
 
 ## Compatibility Status
 
 - Windows: supported and tested
-- Linux: supposedly supported, but not guaranteed and not fully tested
+- Linux: supposedly supported, but not guaranteed and not fully validated
 - macOS: not tested and not guaranteed
 
-This project was designed with priority for:
+Compatibility priority:
 
 - Windows
 - Linux Fedora
@@ -29,13 +29,14 @@ This project was designed with priority for:
 
 - Python 3.11 or newer
 - internet access
-- Spotify account
-- Google account with Google Calendar
+- Spotify account if you want the Spotify module
+- Google account with Google Calendar if you want the Calendar module
 
 ## Project Structure
 
 - `src/statusclock/main.py`: main entry point
 - `src/statusclock/dashboard.py`: PySide6 interface
+- `src/statusclock/cli.py`: terminal interface
 - `src/statusclock/config.py`: configuration and environment variables
 - `.env.example`: example configuration
 - `start_statusclock.bat`: quick Windows launcher
@@ -96,8 +97,6 @@ cp .env.example .env
 
 Environment variables live in the `.env` file at the project root.
 
-You can start by copying the example:
-
 Windows:
 
 ```powershell
@@ -113,7 +112,11 @@ cp .env.example .env
 ### Example `.env`
 
 ```env
+APP_MODE=gui
 APP_LANGUAGE=en
+ENABLE_WEATHER=true
+ENABLE_SPOTIFY=true
+ENABLE_GOOGLE_CALENDAR=true
 
 WEATHER_LOCATION=London
 
@@ -130,10 +133,47 @@ GOOGLE_CALENDAR_ID=primary
 - `en`: English
 - `it`: Italian
 
-Set the UI language with:
+Example:
 
 ```env
 APP_LANGUAGE=en
+```
+
+### Supported modes
+
+- `gui`: PySide6 graphical interface
+- `cli`: terminal interface
+
+Example:
+
+```env
+APP_MODE=gui
+```
+
+### Optional modules
+
+- `ENABLE_WEATHER=true|false`
+- `ENABLE_SPOTIFY=true|false`
+- `ENABLE_GOOGLE_CALENDAR=true|false`
+
+When a module is set to `false`, it disappears from both the GUI and CLI dashboards.
+
+Examples:
+
+```env
+ENABLE_WEATHER=false
+ENABLE_SPOTIFY=true
+ENABLE_GOOGLE_CALENDAR=true
+```
+
+```env
+ENABLE_SPOTIFY=false
+ENABLE_GOOGLE_CALENDAR=true
+```
+
+```env
+ENABLE_SPOTIFY=false
+ENABLE_GOOGLE_CALENDAR=false
 ```
 
 ## Weather Setup
@@ -141,7 +181,8 @@ APP_LANGUAGE=en
 The project uses Open-Meteo:
 
 - geocoding: [Open-Meteo Geocoding API](https://open-meteo.com/en/docs/geocoding-api)
-- forecast/current conditions: [Open-Meteo Forecast API](https://open-meteo.com/en/docs)
+- forecast and current conditions: [Open-Meteo Forecast API](https://open-meteo.com/en/docs)
+- service status: [Open-Meteo Status](https://status.open-meteo.com/)
 
 You can configure weather by name:
 
@@ -158,7 +199,21 @@ WEATHER_LON=-0.1276
 
 If coordinates are set, they take priority.
 
+When Open-Meteo returns temporary errors such as `502 Bad Gateway`, the app shows a translated friendly message instead of the raw URL error.
+
+If you do not want to use weather, set:
+
+```env
+ENABLE_WEATHER=false
+```
+
 ## Spotify Setup
+
+If you do not want to use Spotify, set:
+
+```env
+ENABLE_SPOTIFY=false
+```
 
 Official links:
 
@@ -185,6 +240,7 @@ http://127.0.0.1:8888/callback
 ### `.env`
 
 ```env
+ENABLE_SPOTIFY=true
 SPOTIFY_CLIENT_ID=your_client_id
 SPOTIFY_CLIENT_SECRET=your_client_secret
 SPOTIFY_REDIRECT_URI=http://127.0.0.1:8888/callback
@@ -193,10 +249,16 @@ SPOTIFY_REDIRECT_URI=http://127.0.0.1:8888/callback
 ### Notes
 
 - The redirect URI must match exactly in both `.env` and the Spotify dashboard.
-- On first run, the app should open the browser for authorization.
+- On first run, the app may open the browser for authorization.
 - The Spotify token is stored in `.cache/spotify_token.json`.
 
 ## Google Calendar Setup
+
+If you do not want to use Google Calendar, set:
+
+```env
+ENABLE_GOOGLE_CALENDAR=false
+```
 
 Official links:
 
@@ -219,15 +281,14 @@ Official links:
 
 ### `.env`
 
-For the main calendar:
-
 ```env
+ENABLE_GOOGLE_CALENDAR=true
 GOOGLE_CALENDAR_ID=primary
 ```
 
 ### Notes
 
-- On first run, the app opens the browser for Google login.
+- On first run, the app may open the browser for Google login.
 - After authorization, `token.json` is created in the project root.
 - If the Google app is still in testing mode, add your account under `Test users`.
 
@@ -273,23 +334,27 @@ or
 
 On first launch, the expected behavior is:
 
-- the window opens in fullscreen
+- the window opens in fullscreen in `gui` mode
 - the clock appears immediately
-- the browser may open for Spotify authentication
-- the browser may open for Google authentication
-- `token.json` is created
-- `.cache/spotify_token.json` is created
+- in `cli` mode, the dashboard appears directly in the terminal
+- the browser may open for Spotify authentication if the module is enabled
+- the browser may open for Google authentication if the module is enabled
+- `token.json` is created if the Calendar module is enabled
+- `.cache/spotify_token.json` is created if the Spotify module is enabled
 
 ## Shortcuts
 
-- `Esc`: closes the app
-- `F11`: toggles fullscreen
+- `Esc`: closes the app in graphical mode
+- `F11`: toggles fullscreen in graphical mode
+- `Ctrl+C`: closes the app in CLI mode
 
 ## Automatically Created Files
 
 - `.env`
 - `token.json`
 - `.cache/spotify_token.json`
+
+The last two only appear if their respective modules are enabled.
 
 ## Troubleshooting
 
@@ -335,6 +400,7 @@ python3 -m src.statusclock
 
 Check:
 
+- `ENABLE_SPOTIFY=true`
 - `SPOTIFY_CLIENT_ID` is set
 - `SPOTIFY_CLIENT_SECRET` is set
 - `SPOTIFY_REDIRECT_URI=http://127.0.0.1:8888/callback`
@@ -345,27 +411,23 @@ Check:
 
 Check:
 
+- `ENABLE_GOOGLE_CALENDAR=true`
 - `credentials.json` exists in the project root
 - Google Calendar API is enabled in the correct project
 - you authorized the account in the browser
 - `GOOGLE_CALENDAR_ID=primary` or another valid calendar ID
 - your account is listed under `Test users` if the app is still in testing
 
-### Reinstall dependencies
+### Weather appears as unavailable
 
-Windows:
+This can happen if Open-Meteo is temporarily degraded, for example with `502 Bad Gateway`.
 
-```powershell
-.\.venv\Scripts\python.exe -m pip install --upgrade pip
-.\.venv\Scripts\python.exe -m pip install -r requirements.txt
-```
+Check:
 
-Linux:
-
-```bash
-./.venv/bin/python -m pip install --upgrade pip
-./.venv/bin/python -m pip install -r requirements.txt
-```
+- `ENABLE_WEATHER=true`
+- [Open-Meteo Status](https://status.open-meteo.com/)
+- your internet connection
+- whether the location or coordinates are valid
 
 ## Final Notes
 

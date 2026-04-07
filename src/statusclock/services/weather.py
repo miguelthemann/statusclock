@@ -42,20 +42,23 @@ class WeatherService:
         if not self.is_configured():
             raise RuntimeError("Define WEATHER_LOCATION or WEATHER_LAT/WEATHER_LON.")
 
-        latitude, longitude, resolved_name = self._resolve_location()
-        response = requests.get(
-            "https://api.open-meteo.com/v1/forecast",
-            params={
-                "latitude": latitude,
-                "longitude": longitude,
-                "current": "temperature_2m,weather_code",
-            },
-            headers={"User-Agent": USER_AGENT},
-            timeout=self.timeout,
-        )
-        response.raise_for_status()
-        payload = response.json()
-        current = payload.get("current", {})
+        try:
+            latitude, longitude, resolved_name = self._resolve_location()
+            response = requests.get(
+                "https://api.open-meteo.com/v1/forecast",
+                params={
+                    "latitude": latitude,
+                    "longitude": longitude,
+                    "current": "temperature_2m,weather_code",
+                },
+                headers={"User-Agent": USER_AGENT},
+                timeout=self.timeout,
+            )
+            response.raise_for_status()
+            payload = response.json()
+            current = payload.get("current", {})
+        except requests.RequestException as exc:
+            raise RuntimeError(self.i18n.t("weather_request_error")) from exc
 
         return WeatherSnapshot(
             location_name=resolved_name,

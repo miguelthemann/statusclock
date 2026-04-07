@@ -33,6 +33,7 @@ TRANSLATIONS: dict[str, dict[str, str]] = {
         "album_missing": "Sem capa",
         "album_unavailable": "Capa indisponível",
         "weather_not_found": "Não foi possível encontrar '{location}'.",
+        "weather_request_error": "Serviço meteorológico indisponível de momento.",
         "weather_default_location": "Localização",
         "weather_unknown": "Estado desconhecido",
         "weather_clear": "Céu limpo",
@@ -76,6 +77,7 @@ TRANSLATIONS: dict[str, dict[str, str]] = {
         "calendar_all_day": "Todo o dia",
         "calendar_unknown_time": "Hora desconhecida",
         "easter_egg": "A vida é mesmo life. - J. T. 2026",
+        "cli_exit_hint": "Ctrl+C para sair.",
     },
     "en": {
         "app_title": "Status Clock",
@@ -100,6 +102,7 @@ TRANSLATIONS: dict[str, dict[str, str]] = {
         "album_missing": "No cover",
         "album_unavailable": "Cover unavailable",
         "weather_not_found": "Could not find '{location}'.",
+        "weather_request_error": "Weather service is currently unavailable.",
         "weather_default_location": "Location",
         "weather_unknown": "Unknown conditions",
         "weather_clear": "Clear sky",
@@ -143,6 +146,7 @@ TRANSLATIONS: dict[str, dict[str, str]] = {
         "calendar_all_day": "All day",
         "calendar_unknown_time": "Unknown time",
         "easter_egg": "Life really is life. - J. T. 2026",
+        "cli_exit_hint": "Press Ctrl+C to exit.",
     },
     "it": {
         "app_title": "Status Clock",
@@ -167,6 +171,7 @@ TRANSLATIONS: dict[str, dict[str, str]] = {
         "album_missing": "Nessuna copertina",
         "album_unavailable": "Copertina non disponibile",
         "weather_not_found": "Impossibile trovare '{location}'.",
+        "weather_request_error": "Il servizio meteo non è disponibile al momento.",
         "weather_default_location": "Posizione",
         "weather_unknown": "Condizioni sconosciute",
         "weather_clear": "Cielo sereno",
@@ -210,6 +215,7 @@ TRANSLATIONS: dict[str, dict[str, str]] = {
         "calendar_all_day": "Tutto il giorno",
         "calendar_unknown_time": "Ora sconosciuta",
         "easter_egg": "La vita è davvero life. - J. T. 2026",
+        "cli_exit_hint": "Premi Ctrl+C per uscire.",
     },
 }
 
