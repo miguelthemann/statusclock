@@ -1,14 +1,15 @@
+"""Internationalization support for Status Clock."""
+
 from __future__ import annotations
 
 from dataclasses import dataclass
 
 from PySide6.QtCore import QLocale
 
-
 SUPPORTED_LANGUAGES = {"pt", "en", "it"}
 DEFAULT_LANGUAGE = "pt"
 
-
+# Translation strings organized by language code
 TRANSLATIONS: dict[str, dict[str, str]] = {
     "pt": {
         "app_title": "Status Clock",
@@ -221,6 +222,7 @@ TRANSLATIONS: dict[str, dict[str, str]] = {
 
 
 def normalize_language(language: str | None) -> str:
+    """Normalize language code to supported format."""
     if not language:
         return DEFAULT_LANGUAGE
     normalized = language.strip().lower()
@@ -228,21 +230,25 @@ def normalize_language(language: str | None) -> str:
 
 
 def get_qlocale(language: str) -> QLocale:
-    normalized = normalize_language(language)
-    if normalized == "en":
+    """Get Qt locale object for the given language."""
+    lang = normalize_language(language)
+    if lang == "en":
         return QLocale(QLocale.Language.English, QLocale.Country.UnitedKingdom)
-    if normalized == "it":
+    if lang == "it":
         return QLocale(QLocale.Language.Italian, QLocale.Country.Italy)
     return QLocale(QLocale.Language.Portuguese, QLocale.Country.Portugal)
 
 
 @dataclass(slots=True)
 class I18N:
+    """Simple translation helper that falls back to Portuguese for missing keys."""
+
     language: str
 
     def __post_init__(self) -> None:
         self.language = normalize_language(self.language)
 
     def t(self, key: str, **kwargs: object) -> str:
+        """Look up a translation key, with optional string formatting."""
         text = TRANSLATIONS[self.language].get(key) or TRANSLATIONS[DEFAULT_LANGUAGE][key]
         return text.format(**kwargs) if kwargs else text

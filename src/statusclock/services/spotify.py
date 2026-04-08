@@ -1,21 +1,23 @@
+"""Spotify integration for fetching currently playing track."""
+
 from __future__ import annotations
 
 from dataclasses import dataclass
 from pathlib import Path
 
-import spotipy as spotify_web_api
+import spotipy
 from spotipy.exceptions import SpotifyException
-from spotipy.oauth2 import SpotifyOAuth
-from spotipy.oauth2 import SpotifyOauthError
+from spotipy.oauth2 import SpotifyOAuth, SpotifyOauthError
 
 from ..i18n import I18N
-
 
 SCOPE = "user-read-currently-playing user-read-playback-state"
 
 
 @dataclass(slots=True)
 class SpotifySnapshot:
+    """Snapshot of the current Spotify playback state."""
+
     title: str
     artist: str
     is_playing: bool
@@ -23,6 +25,8 @@ class SpotifySnapshot:
 
 
 class SpotifyService:
+    """Fetches current playback info from Spotify."""
+
     def __init__(
         self,
         *,
@@ -38,12 +42,14 @@ class SpotifyService:
         self.cache_path = cache_path
         self.i18n = i18n
         self._auth_manager: SpotifyOAuth | None = None
-        self._client: spotify_web_api.Spotify | None = None
+        self._client: spotipy.Spotify | None = None
 
     def is_configured(self) -> bool:
+        """Check if Spotify credentials are set."""
         return all([self.client_id, self.client_secret, self.redirect_uri])
 
     def fetch(self) -> SpotifySnapshot:
+        """Fetch current playback state from Spotify."""
         if not self.is_configured():
             raise RuntimeError(self.i18n.t("spotify_missing_config"))
 
@@ -69,12 +75,9 @@ class SpotifyService:
 
         item = playback.get("item") or {}
         artists = item.get("artists") or []
-        artist_names = ", ".join(artist["name"] for artist in artists) or self.i18n.t(
-            "spotify_unknown_artist"
-        )
+        artist_names = ", ".join(artist["name"] for artist in artists) or self.i18n.t("spotify_unknown_artist")
         title = item.get("name") or self.i18n.t("spotify_unknown_track")
-        album = item.get("album") or {}
-        images = album.get("images") or []
+        images = (item.get("album") or {}).get("images") or []
         album_art_url = images[1]["url"] if len(images) > 1 else (images[0]["url"] if images else None)
 
         return SpotifySnapshot(
@@ -84,7 +87,8 @@ class SpotifyService:
             album_art_url=album_art_url,
         )
 
-    def _get_client(self) -> spotify_web_api.Spotify:
+    def _get_client(self) -> spotipy.Spotify:
+        """Get or create authenticated Spotify client."""
         if self._client is not None:
             return self._client
 
@@ -97,5 +101,5 @@ class SpotifyService:
             cache_path=str(self.cache_path),
             show_dialog=False,
         )
-        self._client = spotify_web_api.Spotify(auth_manager=self._auth_manager)
+        self._client = spotipy.Spotify(auth_manager=self._auth_manager)
         return self._client

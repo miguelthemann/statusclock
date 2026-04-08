@@ -1,31 +1,18 @@
+"""Entry point for Status Clock application."""
+
 from __future__ import annotations
 
-if __package__ in (None, ""):
-    import sys
-    from pathlib import Path
-
-    package_root = Path(__file__).resolve().parents[2]
-    if str(package_root) not in sys.path:
-        sys.path.insert(0, str(package_root))
-
-    from src.statusclock.config import AppConfig
-    from src.statusclock.cli import launch_cli
-    from src.statusclock.dashboard import DashboardServices, launch_dashboard
-    from src.statusclock.i18n import I18N
-    from src.statusclock.services.calendar_service import GoogleCalendarService
-    from src.statusclock.services.spotify import SpotifyService
-    from src.statusclock.services.weather import WeatherService
-else:
-    from .config import AppConfig
-    from .cli import launch_cli
-    from .dashboard import DashboardServices, launch_dashboard
-    from .i18n import I18N
-    from .services.calendar_service import GoogleCalendarService
-    from .services.spotify import SpotifyService
-    from .services.weather import WeatherService
+from .config import AppConfig
+from .cli import launch_cli
+from .dashboard import DashboardServices, launch_dashboard
+from .i18n import I18N
+from .services.calendar_service import GoogleCalendarService
+from .services.spotify import SpotifyService
+from .services.weather import WeatherService
 
 
 def build_services(config: AppConfig) -> DashboardServices:
+    """Wire up all service instances from configuration."""
     i18n = I18N(config.language)
     return DashboardServices(
         i18n=i18n,
@@ -55,6 +42,7 @@ def build_services(config: AppConfig) -> DashboardServices:
 
 
 def main() -> int:
+    """Load config, build services, and launch the appropriate interface."""
     config = AppConfig.from_env()
     services = build_services(config)
     if config.app_mode == "cli":

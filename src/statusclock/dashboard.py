@@ -1,3 +1,5 @@
+"""PySide6 GUI dashboard for Status Clock."""
+
 from __future__ import annotations
 
 from dataclasses import dataclass
@@ -27,27 +29,28 @@ from .services.calendar_service import GoogleCalendarService
 from .services.spotify import SpotifyService, SpotifySnapshot
 from .services.weather import WeatherService, WeatherSnapshot
 
-
 CLOCK_FORMAT = "%H:%M:%S"
+
 CALENDAR_ICON_SVG = """
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
-  <rect x="8" y="10" width="48" height="46" rx="10" fill="#ffffff"/>
-  <rect x="8" y="10" width="48" height="14" rx="10" fill="#ea4335"/>
-  <rect x="14" y="4" width="6" height="16" rx="3" fill="#4285f4"/>
-  <rect x="44" y="4" width="6" height="16" rx="3" fill="#34a853"/>
-  <rect x="18" y="30" width="10" height="10" rx="2" fill="#fbbc05"/>
-  <rect x="34" y="30" width="12" height="12" rx="3" fill="#4285f4"/>
-  <rect x="18" y="44" width="28" height="4" rx="2" fill="#dadce0"/>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+    <rect x="3" y="4" width="18" height="18" rx="2" ry="2"/>
+    <line x1="16" y1="2" x2="16" y2="6"/>
+    <line x1="8" y1="2" x2="8" y2="6"/>
+    <line x1="3" y1="10" x2="21" y2="10"/>
 </svg>
 """.strip()
 
 
 class WorkerSignals(QObject):
+    """Signals emitted by background workers."""
+
     success = Signal(object)
     error = Signal(str)
 
 
 class Worker(QRunnable):
+    """Runs a callable in the thread pool and emits signals on completion."""
+
     def __init__(self, func: Callable[[], object]) -> None:
         super().__init__()
         self.func = func
@@ -56,13 +59,15 @@ class Worker(QRunnable):
     def run(self) -> None:
         try:
             result = self.func()
-        except Exception as exc:  # noqa: BLE001
+        except Exception as exc:
             self.signals.error.emit(str(exc))
         else:
             self.signals.success.emit(result)
 
 
 class MarqueeLabel(QLabel):
+    """Label that scrolls text horizontally when it overflows."""
+
     def __init__(self, text: str = "", parent: QWidget | None = None) -> None:
         super().__init__(text, parent)
         self._offset = 0
@@ -75,13 +80,13 @@ class MarqueeLabel(QLabel):
         self._timer.timeout.connect(self._tick)
         self._timer.start(30)
 
-    def setText(self, text: str) -> None:  # type: ignore[override]
+    def setText(self, text: str) -> None:
         super().setText(text)
         self._offset = 0
         self._pause_ticks = self._pause_duration
         self.update()
 
-    def resizeEvent(self, event) -> None:  # type: ignore[override]
+    def resizeEvent(self, event) -> None:
         new_width = event.size().width()
         if new_width != self._last_width:
             self._offset = 0
@@ -89,7 +94,7 @@ class MarqueeLabel(QLabel):
             self._last_width = new_width
         super().resizeEvent(event)
 
-    def paintEvent(self, event) -> None:  # type: ignore[override]
+    def paintEvent(self, event) -> None:
         painter = QPainter(self)
         option = QStyleOption()
         option.initFrom(self)
@@ -105,16 +110,16 @@ class MarqueeLabel(QLabel):
         rect = self.contentsRect()
         metrics = self.fontMetrics()
         text_width = metrics.horizontalAdvance(text)
-        baseline = rect.y() + metrics.ascent() + max(0, (rect.height() - metrics.height()) // 2)
+        baseline = rect.top() + metrics.ascent() + max(0, (rect.height() - metrics.height()) // 2)
 
         if text_width <= rect.width():
             painter.drawText(rect, int(self.alignment()), text)
             return
 
-        x = rect.x() - self._offset
         painter.setClipRect(rect)
-        painter.drawText(x, baseline, text)
-        painter.drawText(x + text_width + self._gap_px, baseline, text)
+        element = rect.left() - self._offset
+        painter.drawText(element, baseline, text)
+        painter.drawText(element + text_width + self._gap_px, baseline, text)
 
     def _tick(self) -> None:
         text = self.text()
@@ -142,6 +147,8 @@ class MarqueeLabel(QLabel):
 
 @dataclass(slots=True)
 class DashboardServices:
+    """Container for all service instances used by the dashboard."""
+
     i18n: I18N
     enable_weather: bool
     enable_spotify: bool
@@ -153,6 +160,8 @@ class DashboardServices:
 
 @dataclass(slots=True)
 class _CardRefs:
+    """References to widgets within a dashboard card."""
+
     frame: QFrame
     subtitle: QLabel
     body: QLabel
@@ -163,6 +172,8 @@ class _CardRefs:
 
 @dataclass(slots=True)
 class _RefreshState:
+    """Tracks which services are currently loading."""
+
     weather_busy: bool = False
     spotify_busy: bool = False
     calendar_busy: bool = False
@@ -172,6 +183,8 @@ class _RefreshState:
 
 
 class StatusClockWindow(QMainWindow):
+    """Main application window showing clock, weather, Spotify, and calendar."""
+
     def __init__(self, services: DashboardServices) -> None:
         super().__init__()
         self.services = services
@@ -192,6 +205,7 @@ class StatusClockWindow(QMainWindow):
         self.refresh_all()
 
     def _build_ui(self) -> None:
+        """Construct the main window layout."""
         root = QWidget()
         root.setObjectName("root")
         self.setCentralWidget(root)
@@ -204,11 +218,13 @@ class StatusClockWindow(QMainWindow):
         top_row.setSpacing(14)
         shell.addLayout(top_row)
 
+        # Weather card
         self.weather_card = self._create_card(self.i18n.t("weather_title"))
         self.weather_card.body.setText(self.i18n.t("weather_setup"))
         self.weather_card.frame.setSizePolicy(QSizePolicy.Policy.Maximum, QSizePolicy.Policy.Preferred)
         self.weather_card.frame.setMaximumWidth(360)
 
+        # Spotify card
         self.spotify_card = self._create_card(self.i18n.t("spotify_title"), with_media=True)
         self.spotify_card.body.setText(self.i18n.t("spotify_setup_title"))
         if self.spotify_card.secondary is not None:
@@ -220,23 +236,17 @@ class StatusClockWindow(QMainWindow):
             self.spotify_card.text_column.setFixedWidth(300)
 
         if self.services.enable_weather:
-            top_row.addWidget(
-                self.weather_card.frame,
-                0,
-                Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignTop,
-            )
+            top_row.addWidget(self.weather_card.frame, 0, Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignTop)
         else:
             self.weather_card.frame.hide()
-        top_row.addStretch(1)
+            top_row.addStretch(1)
+
         if self.services.enable_spotify:
-            top_row.addWidget(
-                self.spotify_card.frame,
-                0,
-                Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignTop,
-            )
+            top_row.addWidget(self.spotify_card.frame, 0, Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignTop)
         else:
             self.spotify_card.frame.hide()
 
+        # Center clock area
         center = QWidget()
         center_layout = QVBoxLayout(center)
         center_layout.setContentsMargins(0, 0, 0, 0)
@@ -248,9 +258,7 @@ class StatusClockWindow(QMainWindow):
         self.clock_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self.clock_label.setObjectName("clockLabel")
         self.clock_label.setFont(QFont("Segoe UI", 82, QFont.Weight.Bold))
-        self.clock_label.setMinimumWidth(
-            self.clock_label.fontMetrics().horizontalAdvance("88:88:88") + 24
-        )
+        self.clock_label.setMinimumWidth(self.clock_label.fontMetrics().horizontalAdvance("88:88:88") + 24)
         center_layout.addWidget(self.clock_label)
 
         self.date_label = QLabel(self.i18n.t("date_loading"))
@@ -259,6 +267,7 @@ class StatusClockWindow(QMainWindow):
         self.date_label.setFont(QFont("Segoe UI Semibold", 22))
         center_layout.addWidget(self.date_label)
 
+        # Calendar card
         self.calendar_card = self._create_card(self.i18n.t("calendar_title"), title_icon_svg=CALENDAR_ICON_SVG)
         self.calendar_card.body.setText(self.i18n.t("calendar_setup"))
         self.calendar_card.frame.setSizePolicy(QSizePolicy.Policy.Maximum, QSizePolicy.Policy.Preferred)
@@ -269,16 +278,13 @@ class StatusClockWindow(QMainWindow):
         bottom_row.setContentsMargins(0, 0, 0, 0)
         bottom_row.addStretch(1)
         if self.services.enable_calendar:
-            bottom_row.addWidget(
-                self.calendar_card.frame,
-                0,
-                Qt.AlignmentFlag.AlignHCenter | Qt.AlignmentFlag.AlignBottom,
-            )
+            bottom_row.addWidget(self.calendar_card.frame, 0, Qt.AlignmentFlag.AlignHCenter | Qt.AlignmentFlag.AlignBottom)
         else:
             self.calendar_card.frame.hide()
         bottom_row.addStretch(1)
         shell.addLayout(bottom_row)
 
+        # Footer with easter egg
         footer_row = QHBoxLayout()
         footer_row.setContentsMargins(0, 0, 0, 0)
         footer_row.addStretch(1)
@@ -290,6 +296,7 @@ class StatusClockWindow(QMainWindow):
         self._apply_styles()
 
     def _build_shortcuts(self) -> None:
+        """Register keyboard shortcuts."""
         exit_action = QAction(self)
         exit_action.setShortcut(QKeySequence(Qt.Key.Key_Escape))
         exit_action.triggered.connect(self.close)
@@ -301,6 +308,7 @@ class StatusClockWindow(QMainWindow):
         self.addAction(fullscreen_action)
 
     def _start_timers(self) -> None:
+        """Set up periodic refresh timers for each service."""
         self.clock_timer = QTimer(self)
         self.clock_timer.timeout.connect(self._refresh_clock)
         self.clock_timer.start(1000)
@@ -324,11 +332,13 @@ class StatusClockWindow(QMainWindow):
             self.calendar_timer.start(10 * 60 * 1000)
 
     def _refresh_clock(self) -> None:
+        """Update the clock and date labels."""
         now = datetime.now().astimezone()
         self.clock_label.setText(now.strftime(CLOCK_FORMAT))
         self.date_label.setText(self.locale.toString(now, "dddd, d MMMM yyyy"))
 
     def refresh_all(self) -> None:
+        """Trigger refresh for all enabled services."""
         if self.services.enable_weather:
             self.refresh_weather()
         if self.services.enable_spotify:
@@ -337,9 +347,8 @@ class StatusClockWindow(QMainWindow):
             self.refresh_calendar()
 
     def refresh_weather(self) -> None:
-        if not self.services.enable_weather:
-            return
-        if self.refresh_state.weather_busy or self._closing:
+        """Fetch weather data in background."""
+        if not self.services.enable_weather or self.refresh_state.weather_busy or self._closing:
             return
         self.refresh_state.weather_busy = True
         if not self.refresh_state.weather_loaded:
@@ -352,9 +361,8 @@ class StatusClockWindow(QMainWindow):
         )
 
     def refresh_spotify(self) -> None:
-        if not self.services.enable_spotify:
-            return
-        if self.refresh_state.spotify_busy or self._closing:
+        """Fetch Spotify playback in background."""
+        if not self.services.enable_spotify or self.refresh_state.spotify_busy or self._closing:
             return
         self.refresh_state.spotify_busy = True
         if not self.refresh_state.spotify_loaded:
@@ -367,9 +375,8 @@ class StatusClockWindow(QMainWindow):
         )
 
     def refresh_calendar(self) -> None:
-        if not self.services.enable_calendar:
-            return
-        if self.refresh_state.calendar_busy or self._closing:
+        """Fetch calendar events in background."""
+        if not self.services.enable_calendar or self.refresh_state.calendar_busy or self._closing:
             return
         self.refresh_state.calendar_busy = True
         if not self.refresh_state.calendar_loaded:
@@ -382,20 +389,21 @@ class StatusClockWindow(QMainWindow):
         )
 
     def _show_weather(self, snapshot: object) -> None:
+        """Update weather card with fetched data."""
         weather: WeatherSnapshot = snapshot
         self.refresh_state.weather_loaded = True
         self._set_label_text(self.weather_card.subtitle, weather.location_name)
-        self._set_label_text(
-            self.weather_card.body, f"{weather.temperature_c:.1f} \u00b0C\n{weather.description}"
-        )
+        self._set_label_text(self.weather_card.body, f"{weather.temperature_c:.1f} °C — {weather.description}")
         self.weather_card.frame.adjustSize()
 
     def _show_weather_error(self, message: str) -> None:
+        """Show error message in weather card."""
         self._set_label_text(self.weather_card.subtitle, self.i18n.t("weather_unavailable"))
         if not self.refresh_state.weather_loaded:
             self._set_label_text(self.weather_card.body, message)
 
     def _show_spotify(self, snapshot: object) -> None:
+        """Update Spotify card with fetched data."""
         spotify: SpotifySnapshot = snapshot
         self.refresh_state.spotify_loaded = True
         self._set_label_text(
@@ -408,13 +416,15 @@ class StatusClockWindow(QMainWindow):
         self._update_album_art(spotify.album_art_url)
 
     def _show_spotify_error(self, message: str) -> None:
+        """Show error message in Spotify card."""
         self._set_label_text(self.spotify_card.subtitle, self.i18n.t("spotify_unavailable"))
         if not self.refresh_state.spotify_loaded:
             self._set_label_text(self.spotify_card.body, message)
-            if self.spotify_card.secondary is not None:
-                self._set_label_text(self.spotify_card.secondary, "")
+        if self.spotify_card.secondary is not None:
+            self._set_label_text(self.spotify_card.secondary, "")
 
     def _show_calendar(self, events: object) -> None:
+        """Update calendar card with fetched events."""
         today_events = events
         self.refresh_state.calendar_loaded = True
         self._set_label_text(self.calendar_card.subtitle, self.i18n.t("calendar_today"))
@@ -433,13 +443,15 @@ class StatusClockWindow(QMainWindow):
         self._set_calendar_card_width(min(920, max(420, 180 + (longest_line * 8))))
 
     def _show_calendar_error(self, message: str) -> None:
+        """Show error message in calendar card."""
         self._set_label_text(self.calendar_card.subtitle, self.i18n.t("calendar_unavailable"))
         if not self.refresh_state.calendar_loaded:
             self._set_label_text(self.calendar_card.body, message)
-            self._set_calendar_card_height(2)
-            self._set_calendar_card_width(480)
+        self._set_calendar_card_height(2)
+        self._set_calendar_card_width(480)
 
     def _update_album_art(self, url: str | None) -> None:
+        """Download and display album artwork."""
         if self.spotify_card.media is None:
             return
         if not url:
@@ -467,12 +479,7 @@ class StatusClockWindow(QMainWindow):
             return
 
         self.spotify_card.media.setPixmap(
-            pixmap.scaled(
-                108,
-                108,
-                Qt.AspectRatioMode.KeepAspectRatioByExpanding,
-                Qt.TransformationMode.SmoothTransformation,
-            )
+            pixmap.scaled(108, 108, Qt.AspectRatioMode.KeepAspectRatioByExpanding, Qt.TransformationMode.SmoothTransformation)
         )
 
     def _run_async(
@@ -483,6 +490,7 @@ class StatusClockWindow(QMainWindow):
         on_error: Callable[[str], None],
         on_finish: Callable[[], None],
     ) -> None:
+        """Run a function in the thread pool with callbacks."""
         worker = Worker(func)
         self._active_workers.add(worker)
         worker.signals.success.connect(on_success)
@@ -492,19 +500,16 @@ class StatusClockWindow(QMainWindow):
         self.thread_pool.start(worker)
 
     def _toggle_fullscreen(self) -> None:
+        """Toggle between fullscreen and normal window mode."""
         if self.isFullScreen():
             self.showNormal()
         else:
             self.showFullScreen()
 
-    def closeEvent(self, event) -> None:  # type: ignore[override]
+    def closeEvent(self, event) -> None:
+        """Clean up timers and threads before closing."""
         self._closing = True
-        for timer in (
-            self.clock_timer,
-            self.weather_timer,
-            self.spotify_timer,
-            self.calendar_timer,
-        ):
+        for timer in (self.clock_timer, self.weather_timer, self.spotify_timer, self.calendar_timer):
             if timer is not None:
                 timer.stop()
         self.thread_pool.clear()
@@ -513,68 +518,60 @@ class StatusClockWindow(QMainWindow):
         event.accept()
 
     def _apply_styles(self) -> None:
+        """Apply the dark gradient stylesheet."""
         self.setStyleSheet(
             """
             QWidget#root {
-                background: qlineargradient(
-                    x1: 0, y1: 0, x2: 1, y2: 1,
-                    stop: 0 #0b1220,
-                    stop: 0.45 #111a2f,
-                    stop: 1 #1f3b57
-                );
-                color: #f5f7fb;
+                background: qlineargradient(x1:0, y1:0, x2:1, y2:1,
+                    stop:0 #0f0c29, stop:0.5 #302b63, stop:1 #24243e);
             }
             QFrame[card="true"] {
-                background-color: rgba(8, 14, 27, 0.68);
-                border: 1px solid rgba(255, 255, 255, 0.12);
-                border-radius: 24px;
+                background: rgba(255, 255, 255, 0.06);
+                border: 1px solid rgba(255, 255, 255, 0.10);
+                border-radius: 18px;
             }
             QLabel[cardTitle="true"] {
-                color: #9fc4ff;
-                font-size: 14px;
-                font-weight: 700;
-                letter-spacing: 0.12em;
+                color: rgba(255, 255, 255, 0.92);
+                font-size: 15px;
+                font-weight: 600;
             }
             QLabel[cardSubtitle="true"] {
-                color: rgba(159, 196, 255, 0.75);
-                font-size: 13px;
-                font-weight: 600;
+                color: rgba(255, 255, 255, 0.55);
+                font-size: 12px;
             }
             QLabel[cardBody="true"] {
-                color: #f4f7fb;
-                font-size: 19px;
-                font-weight: 600;
+                color: rgba(255, 255, 255, 0.88);
+                font-size: 14px;
             }
             QLabel[cardSecondary="true"] {
-                color: rgba(244, 247, 251, 0.76);
-                font-size: 16px;
-                font-weight: 500;
+                color: rgba(255, 255, 255, 0.60);
+                font-size: 13px;
             }
             QLabel[media="true"] {
-                background-color: rgba(255, 255, 255, 0.06);
+                background: rgba(255, 255, 255, 0.04);
                 border: 1px solid rgba(255, 255, 255, 0.08);
-                border-radius: 18px;
-                color: rgba(244, 247, 251, 0.55);
-                font-size: 14px;
-                font-weight: 600;
+                border-radius: 12px;
+                color: rgba(255, 255, 255, 0.40);
+                font-size: 11px;
             }
             QLabel[iconLabel="true"] {
-                min-width: 28px;
-                max-width: 28px;
-                min-height: 28px;
-                max-height: 28px;
+                background: transparent;
             }
             QLabel#clockLabel {
-                color: #ffffff;
+                color: rgba(255, 255, 255, 0.95);
+                font-size: 82px;
+                font-weight: 700;
+                letter-spacing: 4px;
             }
             QLabel#dateLabel {
-                color: rgba(244, 247, 251, 0.86);
+                color: rgba(255, 255, 255, 0.70);
+                font-size: 22px;
+                font-weight: 600;
             }
             QLabel#easterEggLabel {
-                color: rgba(244, 247, 251, 0.42);
+                color: rgba(255, 255, 255, 0.25);
                 font-size: 11px;
                 font-style: italic;
-                letter-spacing: 0.04em;
             }
             """
         )
@@ -582,6 +579,7 @@ class StatusClockWindow(QMainWindow):
     def _create_card(
         self, title: str, with_media: bool = False, title_icon_svg: str | None = None
     ) -> _CardRefs:
+        """Create a styled card widget with title, subtitle, and body."""
         frame = QFrame()
         frame.setProperty("card", True)
         frame.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Preferred)
@@ -674,6 +672,7 @@ class StatusClockWindow(QMainWindow):
         )
 
     def _svg_to_pixmap(self, svg_text: str, width: int, height: int) -> QPixmap:
+        """Render SVG string to a QPixmap."""
         pixmap = QPixmap(width, height)
         pixmap.fill(Qt.GlobalColor.transparent)
         painter = QPainter(pixmap)
@@ -683,6 +682,7 @@ class StatusClockWindow(QMainWindow):
         return pixmap
 
     def _set_calendar_card_height(self, line_count: int) -> None:
+        """Adjust calendar card height based on content lines."""
         lines = max(1, min(line_count, 7))
         metrics = self.calendar_card.body.fontMetrics()
         line_height = metrics.lineSpacing()
@@ -693,22 +693,26 @@ class StatusClockWindow(QMainWindow):
         self.calendar_card.frame.adjustSize()
 
     def _set_calendar_card_width(self, width: int) -> None:
+        """Adjust calendar card width, clamped to reasonable bounds."""
         target_width = max(420, min(width, 920))
         self.calendar_card.frame.setMinimumWidth(target_width)
         self.calendar_card.frame.setMaximumWidth(target_width)
         self.calendar_card.frame.adjustSize()
 
     def _finish_worker(self, worker: Worker, on_finish: Callable[[], None]) -> None:
+        """Clean up a completed worker and run its finish callback."""
         self._active_workers.discard(worker)
         on_finish()
 
     @staticmethod
     def _set_label_text(label: QLabel, text: str) -> None:
+        """Update label text only if it changed (avoids unnecessary redraws)."""
         if label.text() != text:
             label.setText(text)
 
 
 def launch_dashboard(services: DashboardServices) -> int:
+    """Create and show the main dashboard window."""
     app = QApplication.instance() or QApplication([])
     app.setApplicationName(services.i18n.t("app_title"))
     window = StatusClockWindow(services)

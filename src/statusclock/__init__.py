@@ -1,2 +1,1 @@
 """Status Clock package."""
-
