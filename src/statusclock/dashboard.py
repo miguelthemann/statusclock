@@ -32,7 +32,7 @@ from .services.weather import WeatherService, WeatherSnapshot
 CLOCK_FORMAT = "%H:%M:%S"
 
 CALENDAR_ICON_SVG = """
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
     <rect x="3" y="4" width="18" height="18" rx="2" ry="2"/>
     <line x1="16" y1="2" x2="16" y2="6"/>
     <line x1="8" y1="2" x2="8" y2="6"/>
@@ -518,12 +518,11 @@ class StatusClockWindow(QMainWindow):
         event.accept()
 
     def _apply_styles(self) -> None:
-        """Apply the dark gradient stylesheet."""
+        """10/04/26 - Change to the black bg stylesheet."""
         self.setStyleSheet(
             """
             QWidget#root {
-                background: qlineargradient(x1:0, y1:0, x2:1, y2:1,
-                    stop:0 #0f0c29, stop:0.5 #302b63, stop:1 #24243e);
+                background: #000000;
             }
             QFrame[card="true"] {
                 background: rgba(255, 255, 255, 0.06);
