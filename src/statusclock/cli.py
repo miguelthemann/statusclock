@@ -119,8 +119,8 @@ def launch_cli(services: DashboardServices) -> int:
                     weather_text = f"{i18n.t('weather_unavailable')} | {exc}"
                 last_weather_at = now_ts
 
-            # Refresh Spotify every 2 seconds
-            if services.enable_spotify and (now_ts - last_spotify_at >= 2 or last_spotify_at == 0.0):
+            # Refresh Spotify every 5 seconds (reduced from 2 to save CPU/API calls)
+            if services.enable_spotify and (now_ts - last_spotify_at >= 5 or last_spotify_at == 0.0):
                 try:
                     spotify = services.spotify.fetch()
                     spotify_status = i18n.t("spotify_playing") if spotify.is_playing else i18n.t("spotify_not_playing")
