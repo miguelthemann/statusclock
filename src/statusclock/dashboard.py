@@ -2,11 +2,11 @@
 
 from __future__ import annotations
 
+import requests
 from dataclasses import dataclass
 from datetime import datetime
 from typing import Callable
 
-import requests
 from PySide6.QtCore import QObject, QRunnable, QThreadPool, QTimer, Qt, Signal
 from PySide6.QtGui import QAction, QColor, QFont, QKeySequence, QPainter, QPixmap
 from PySide6.QtSvg import QSvgRenderer
@@ -29,6 +29,11 @@ from .services.calendar_service import GoogleCalendarService
 from .services.spotify import SpotifyService, SpotifySnapshot
 from .services.weather import WeatherService, WeatherSnapshot
 
+
+# ============================================
+# Constants & Configuration
+# ============================================
+
 CLOCK_FORMAT = "%H:%M:%S"
 
 CALENDAR_ICON_SVG = """
@@ -40,6 +45,10 @@ CALENDAR_ICON_SVG = """
 </svg>
 """.strip()
 
+
+# ============================================
+# Worker Thread Infrastructure
+# ============================================
 
 class WorkerSignals(QObject):
     """Signals emitted by background workers."""
@@ -145,6 +154,10 @@ class MarqueeLabel(QLabel):
         self.update()
 
 
+# ============================================
+# Data Structures
+# ============================================
+
 @dataclass
 class DashboardServices:
     """Container for all service instances used by the dashboard."""
@@ -213,6 +226,10 @@ class _RefreshState:
     spotify_loaded: bool = False
     calendar_loaded: bool = False
 
+
+# ============================================
+# Main Window
+# ============================================
 
 class StatusClockWindow(QMainWindow):
     """Main application window showing clock, weather, Spotify, and calendar."""
@@ -355,7 +372,7 @@ class StatusClockWindow(QMainWindow):
         if self.services.enable_spotify:
             self.spotify_timer = QTimer(self)
             self.spotify_timer.timeout.connect(self.refresh_spotify)
-            self.spotify_timer.start(5 * 1000)  # Reduced from 2 to 5 seconds for better performance
+            self.spotify_timer.start(5 * 1000)  # 5 seconds for responsive updates
 
         self.calendar_timer: QTimer | None = None
         if self.services.enable_calendar:
@@ -550,57 +567,73 @@ class StatusClockWindow(QMainWindow):
         event.accept()
 
     def _apply_styles(self) -> None:
-        """10/04/26 - Change to the black bg stylesheet."""
+        """Apply a warm, organic stylesheet to the dashboard."""
         self.setStyleSheet(
             """
             QWidget#root {
-                background: #000000;
+                background: qlineargradient(
+                    x1:0, y1:0, x2:1, y2:1,
+                    stop:0 #0a0c10,
+                    stop:0.5 #141922,
+                    stop:1 #1c212d
+                );
             }
             QFrame[card="true"] {
-                background: rgba(255, 255, 255, 0.06);
-                border: 1px solid rgba(255, 255, 255, 0.10);
-                border-radius: 18px;
+                background: qlineargradient(
+                    x1:0, y1:0, x2:0, y2:1,
+                    stop:0 rgba(255, 255, 255, 0.06),
+                    stop:1 rgba(255, 255, 255, 0.03)
+                );
+                border: 1px solid rgba(255, 255, 255, 0.09);
+                border-radius: 20px;
             }
             QLabel[cardTitle="true"] {
                 color: rgba(255, 255, 255, 0.92);
                 font-size: 15px;
                 font-weight: 600;
+                letter-spacing: 0.2px;
             }
             QLabel[cardSubtitle="true"] {
                 color: rgba(255, 255, 255, 0.55);
                 font-size: 12px;
+                font-weight: 400;
             }
             QLabel[cardBody="true"] {
                 color: rgba(255, 255, 255, 0.88);
                 font-size: 14px;
+                line-height: 1.5;
             }
             QLabel[cardSecondary="true"] {
-                color: rgba(255, 255, 255, 0.60);
+                color: rgba(255, 255, 255, 0.62);
                 font-size: 13px;
             }
             QLabel[media="true"] {
-                background: rgba(255, 255, 255, 0.04);
-                border: 1px solid rgba(255, 255, 255, 0.08);
-                border-radius: 12px;
-                color: rgba(255, 255, 255, 0.40);
+                background: qlineargradient(
+                    x1:0, y1:0, x2:1, y2:1,
+                    stop:0 rgba(255, 255, 255, 0.05),
+                    stop:1 rgba(255, 255, 255, 0.02)
+                );
+                border: 1px solid rgba(255, 255, 255, 0.07);
+                border-radius: 14px;
+                color: rgba(255, 255, 255, 0.38);
                 font-size: 11px;
             }
             QLabel[iconLabel="true"] {
                 background: transparent;
             }
             QLabel#clockLabel {
-                color: rgba(255, 255, 255, 0.95);
+                color: rgba(255, 255, 255, 0.96);
                 font-size: 82px;
                 font-weight: 700;
-                letter-spacing: 4px;
+                letter-spacing: 3px;
             }
             QLabel#dateLabel {
-                color: rgba(255, 255, 255, 0.70);
+                color: rgba(255, 255, 255, 0.72);
                 font-size: 22px;
-                font-weight: 600;
+                font-weight: 500;
             }
             QLabel#easterEggLabel {
-                color: rgba(255, 255, 255, 0.25);
+                color: rgba(255, 255, 255, 0.18);
                 font-size: 11px;
                 font-style: italic;
             }
@@ -615,24 +648,25 @@ class StatusClockWindow(QMainWindow):
         frame.setProperty("card", True)
         frame.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Preferred)
         layout = QVBoxLayout(frame)
-        layout.setContentsMargins(18, 16, 18, 16)
-        layout.setSpacing(10)
+        # Organic, non-uniform margins for natural feel
+        layout.setContentsMargins(20, 18, 20, 18)
+        layout.setSpacing(12)
 
         header = QWidget()
         header_layout = QHBoxLayout(header)
         header_layout.setContentsMargins(0, 0, 0, 0)
-        header_layout.setSpacing(8)
+        header_layout.setSpacing(10)
 
         if title_icon_svg:
             icon_label = QLabel()
             icon_label.setProperty("iconLabel", True)
-            icon_label.setPixmap(self._svg_to_pixmap(title_icon_svg, 28, 28))
+            icon_label.setPixmap(self._svg_to_pixmap(title_icon_svg, 26, 26))
             header_layout.addWidget(icon_label, 0, Qt.AlignmentFlag.AlignTop)
 
         title_column = QWidget()
         title_layout = QVBoxLayout(title_column)
         title_layout.setContentsMargins(0, 0, 0, 0)
-        title_layout.setSpacing(2)
+        title_layout.setSpacing(3)
 
         title_label = QLabel(title)
         title_label.setProperty("cardTitle", True)
@@ -648,21 +682,21 @@ class StatusClockWindow(QMainWindow):
         body_row = QWidget()
         body_layout = QHBoxLayout(body_row)
         body_layout.setContentsMargins(0, 0, 0, 0)
-        body_layout.setSpacing(12)
+        body_layout.setSpacing(14)
 
         body_label = MarqueeLabel(self.i18n.t("loading")) if with_media else QLabel(self.i18n.t("loading"))
         body_label.setProperty("cardBody", True)
         body_label.setAlignment(Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter)
         if with_media:
             body_label.setFixedWidth(300)
-            body_label.setFixedHeight(body_label.fontMetrics().lineSpacing() + 8)
+            body_label.setFixedHeight(body_label.fontMetrics().lineSpacing() + 10)
         else:
             body_label.setWordWrap(True)
 
         text_column = QWidget()
         text_layout = QVBoxLayout(text_column)
         text_layout.setContentsMargins(0, 0, 0, 0)
-        text_layout.setSpacing(10)
+        text_layout.setSpacing(12)
         text_layout.addWidget(body_label)
 
         secondary_label: QLabel | None = None
@@ -671,7 +705,7 @@ class StatusClockWindow(QMainWindow):
             secondary_label.setProperty("cardSecondary", True)
             secondary_label.setAlignment(Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter)
             secondary_label.setFixedWidth(300)
-            secondary_label.setFixedHeight(secondary_label.fontMetrics().lineSpacing() + 6)
+            secondary_label.setFixedHeight(secondary_label.fontMetrics().lineSpacing() + 8)
             text_layout.addWidget(secondary_label)
 
         body_layout.addWidget(text_column, 1)
@@ -681,16 +715,17 @@ class StatusClockWindow(QMainWindow):
             media_label = QLabel(self.i18n.t("album_missing"))
             media_label.setProperty("media", True)
             media_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
-            media_label.setFixedSize(108, 108)
+            media_label.setFixedSize(112, 112)
             media_label.setScaledContents(True)
             body_layout.addWidget(media_label, 0, Qt.AlignmentFlag.AlignTop)
 
         layout.addWidget(body_row)
 
+        # Softer, more organic shadow
         shadow = QGraphicsDropShadowEffect(self)
-        shadow.setBlurRadius(36)
-        shadow.setOffset(0, 14)
-        shadow.setColor(QColor(0, 0, 0, 90))
+        shadow.setBlurRadius(42)
+        shadow.setOffset(0, 16)
+        shadow.setColor(QColor(0, 0, 0, 75))
         frame.setGraphicsEffect(shadow)
 
         return _CardRefs(
@@ -741,6 +776,10 @@ class StatusClockWindow(QMainWindow):
         if label.text() != text:
             label.setText(text)
 
+
+# ============================================
+# Entry Point
+# ============================================
 
 def launch_dashboard(services: DashboardServices) -> int:
     """Create and show the main dashboard window."""
