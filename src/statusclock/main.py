@@ -6,8 +6,9 @@ import time
 from typing import Callable
 
 from .config import AppConfig
+from .core import DashboardServices
 from .cli import launch_cli
-from .dashboard import DashboardServices, launch_dashboard
+from .ui import launch_dashboard
 from .i18n import I18N
 from .services.calendar_service import GoogleCalendarService
 from .services.spotify import SpotifyService
